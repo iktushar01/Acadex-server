@@ -18,6 +18,7 @@ app.use(express.json());
 
 let usersCollection;
 let coursesCollection;
+let notesCollection;
 
 // Health check endpoint
 app.get("/health", (_req, res) => {
@@ -149,6 +150,182 @@ app.delete("/courses/:id", async (req, res) => {
   }
 });
 
+// Notes CRUD API
+app.post("/notes", async (req, res) => {
+  try {
+    if (!notesCollection) {
+      return res.status(503).json({ error: "Database not initialized. Please wait." });
+    }
+
+    const {
+      title,
+      subject,
+      courseId,
+      courseTitle,
+      description,
+      attachments,
+      fileUrl,
+      publicId,
+      originalFilename,
+      resourceType,
+      format,
+      bytes,
+    } = req.body || {};
+
+    const normalizedAttachments = Array.isArray(attachments)
+      ? attachments
+          .filter((item) => item && item.secureUrl)
+          .map((item) => ({
+            secureUrl: item.secureUrl,
+            publicId: item.publicId || null,
+            originalFilename: item.originalFilename || null,
+            resourceType: item.resourceType || null,
+            format: item.format || null,
+            bytes: typeof item.bytes === "number" ? item.bytes : null,
+            folder: item.folder || null,
+            relativePath: item.relativePath || null,
+          }))
+      : [];
+
+    const primaryAttachment = normalizedAttachments[0];
+
+    if (!title || (!subject && !courseId && !courseTitle)) {
+      return res.status(400).json({ error: "title and course information are required." });
+    }
+
+    if (!primaryAttachment && !fileUrl) {
+      return res.status(400).json({ error: "At least one uploaded file is required." });
+    }
+
+    const note = {
+      title,
+      subject: courseTitle || subject || null,
+      courseId: courseId || null,
+      courseTitle: courseTitle || subject || null,
+      description: description || "",
+      attachments: normalizedAttachments,
+      fileUrl: primaryAttachment?.secureUrl || fileUrl || null,
+      publicId: primaryAttachment?.publicId || publicId || null,
+      originalFilename: primaryAttachment?.originalFilename || originalFilename || null,
+      resourceType: primaryAttachment?.resourceType || resourceType || null,
+      format: primaryAttachment?.format || format || null,
+      bytes:
+        typeof primaryAttachment?.bytes === "number"
+          ? primaryAttachment.bytes
+          : typeof bytes === "number"
+          ? bytes
+          : null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const result = await notesCollection.insertOne(note);
+    return res.status(201).json({
+      success: true,
+      note: { ...note, _id: result.insertedId },
+    });
+  } catch (error) {
+    console.error("POST /notes error:", error);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+app.get("/notes", async (_req, res) => {
+  try {
+    if (!notesCollection) {
+      return res.status(503).json({ error: "Database not initialized. Please wait." });
+    }
+
+    const notes = await notesCollection.find({}).sort({ createdAt: -1 }).toArray();
+    return res.status(200).json(notes);
+  } catch (error) {
+    console.error("GET /notes error:", error);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+app.get("/notes/:id", async (req, res) => {
+  try {
+    if (!notesCollection) {
+      return res.status(503).json({ error: "Database not initialized. Please wait." });
+    }
+
+    let note;
+    try {
+      note = await notesCollection.findOne({ _id: new ObjectId(req.params.id) });
+    } catch (err) {
+      return res.status(400).json({ error: "Invalid note ID." });
+    }
+
+    if (!note) {
+      return res.status(404).json({ error: "Note not found." });
+    }
+
+    return res.status(200).json(note);
+  } catch (error) {
+    console.error("GET /notes/:id error:", error);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+app.put("/notes/:id", async (req, res) => {
+  try {
+    if (!notesCollection) {
+      return res.status(503).json({ error: "Database not initialized. Please wait." });
+    }
+
+    const update = req.body || {};
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({ error: "Update payload is required." });
+    }
+
+    update.updatedAt = new Date();
+
+    let result;
+    try {
+      result = await notesCollection.updateOne(
+        { _id: new ObjectId(req.params.id) },
+        { $set: update }
+      );
+    } catch (err) {
+      return res.status(400).json({ error: "Invalid note ID." });
+    }
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "Note not found." });
+    }
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("PUT /notes/:id error:", error);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+app.delete("/notes/:id", async (req, res) => {
+  try {
+    if (!notesCollection) {
+      return res.status(503).json({ error: "Database not initialized. Please wait." });
+    }
+
+    let result;
+    try {
+      result = await notesCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+    } catch (err) {
+      return res.status(400).json({ error: "Invalid note ID." });
+    }
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "Note not found." });
+    }
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("DELETE /notes/:id error:", error);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+});
+
 app.post("/users", async (req, res) => {
   try {
     const { clerkId, name, email, image } = req.body || {};
@@ -251,12 +428,14 @@ async function init() {
     const db = client.db(DB_NAME);
     usersCollection = db.collection("users");
     coursesCollection = db.collection("courses");
-    console.log("Collections initialized: users, courses");
+    notesCollection = db.collection("notes");
+    console.log("Collections initialized: users, courses, notes");
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`Health check: http://localhost:${PORT}/health`);
       console.log(`Courses API: http://localhost:${PORT}/courses`);
+      console.log(`Notes API: http://localhost:${PORT}/notes`);
     });
   } catch (error) {
     console.error("Failed to initialize server:", error);
