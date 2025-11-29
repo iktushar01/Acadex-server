@@ -20,6 +20,7 @@ let usersCollection;
 let coursesCollection;
 let notesCollection;
 let classroomsCollection;
+let classroomMembersCollection;
 
 // Health check endpoint
 app.get("/health", (_req, res) => {
@@ -483,18 +484,24 @@ app.post("/classrooms", async (req, res) => {
 
 app.post("/classrooms/join", async (req, res) => {
   try {
-    if (!classroomsCollection) {
+    if (!classroomsCollection || !classroomMembersCollection) {
       return res
         .status(503)
         .json({ error: "Database not initialized. Please wait." });
     }
 
-    const { classCode, displayName } = req.body || {};
+    const { classCode, displayName, clerkId } = req.body || {};
 
     if (!classCode) {
       return res
         .status(400)
         .json({ error: "classCode is required to join a classroom." });
+    }
+
+    if (!clerkId) {
+      return res
+        .status(400)
+        .json({ error: "clerkId is required to join a classroom." });
     }
 
     const classroom = await classroomsCollection.findOne({ classCode });
@@ -504,8 +511,29 @@ app.post("/classrooms/join", async (req, res) => {
         .json({ error: "No classroom found with this code." });
     }
 
-    // For now we just validate and return the classroom.
-    // You can extend this later to track members with displayName and user id.
+    // Check if user is already a member
+    const existingMember = await classroomMembersCollection.findOne({
+      clerkId,
+      classroomId: classroom._id.toString(),
+    });
+
+    if (!existingMember) {
+      // Add user as a member
+      await classroomMembersCollection.insertOne({
+        clerkId,
+        classroomId: classroom._id.toString(),
+        classCode,
+        displayName: displayName || null,
+        joinedAt: new Date(),
+      });
+
+      // Update member count
+      await classroomsCollection.updateOne(
+        { _id: classroom._id },
+        { $inc: { memberCount: 1 } }
+      );
+    }
+
     return res.status(200).json({
       success: true,
       classroom,
@@ -513,6 +541,53 @@ app.post("/classrooms/join", async (req, res) => {
     });
   } catch (error) {
     console.error("POST /classrooms/join error:", error);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+app.get("/classrooms/user/:clerkId", async (req, res) => {
+  try {
+    if (!classroomsCollection || !classroomMembersCollection) {
+      return res
+        .status(503)
+        .json({ error: "Database not initialized. Please wait." });
+    }
+
+    const { clerkId } = req.params;
+
+    // Get all memberships for this user
+    const memberships = await classroomMembersCollection
+      .find({ clerkId })
+      .sort({ joinedAt: -1 })
+      .toArray();
+
+    if (memberships.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    // Get all classroom IDs
+    const classroomIds = memberships.map((m) => new ObjectId(m.classroomId));
+
+    // Fetch all classrooms
+    const classrooms = await classroomsCollection
+      .find({ _id: { $in: classroomIds } })
+      .toArray();
+
+    // Combine membership data with classroom data
+    const joinedClassrooms = memberships.map((membership) => {
+      const classroom = classrooms.find(
+        (c) => c._id.toString() === membership.classroomId
+      );
+      return {
+        ...classroom,
+        displayName: membership.displayName,
+        joinedAt: membership.joinedAt,
+      };
+    });
+
+    return res.status(200).json(joinedClassrooms);
+  } catch (error) {
+    console.error("GET /classrooms/user/:clerkId error:", error);
     return res.status(500).json({ error: "Internal server error." });
   }
 });
@@ -537,7 +612,8 @@ async function init() {
     coursesCollection = db.collection("courses");
     notesCollection = db.collection("notes");
     classroomsCollection = db.collection("classrooms");
-    console.log("Collections initialized: users, courses, notes, classrooms");
+    classroomMembersCollection = db.collection("classroomMembers");
+    console.log("Collections initialized: users, courses, notes, classrooms, classroomMembers");
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
