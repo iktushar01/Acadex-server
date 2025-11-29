@@ -19,6 +19,7 @@ app.use(express.json());
 let usersCollection;
 let coursesCollection;
 let notesCollection;
+let classroomsCollection;
 
 // Health check endpoint
 app.get("/health", (_req, res) => {
@@ -410,13 +411,119 @@ app.delete("/users/:id", async (req, res) => {
   }
 });
 
-// Catch-all route for debugging
+// Classrooms API
+app.post("/classrooms", async (req, res) => {
+  try {
+    if (!classroomsCollection) {
+      return res
+        .status(503)
+        .json({ error: "Database not initialized. Please wait." });
+    }
+
+    const {
+      institutionType,
+      institutionName,
+      departmentName,
+      classOrGrade,
+      section,
+      classroomName,
+      classCode,
+      capacity,
+    } = req.body || {};
+
+    if (!institutionType || !institutionName || !classroomName || !classCode) {
+      return res.status(400).json({
+        error:
+          "institutionType, institutionName, classroomName and classCode are required fields.",
+      });
+    }
+
+    if (!/^[A-Za-z0-9]{6}$/.test(classCode)) {
+      return res.status(400).json({
+        error: "classCode must be 6 characters long and contain only A-Z, 0-9.",
+      });
+    }
+
+    const existing = await classroomsCollection.findOne({ classCode });
+    if (existing) {
+      return res.status(409).json({
+        error: "A classroom with this code already exists. Please regenerate.",
+      });
+    }
+
+    const classroom = {
+      institutionType,
+      institutionName,
+      departmentName: departmentName || null,
+      classOrGrade: classOrGrade || null,
+      section: section || null,
+      classroomName,
+      classCode,
+      capacity:
+        typeof capacity === "number"
+          ? capacity
+          : capacity
+          ? Number(capacity) || null
+          : null,
+      memberCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const result = await classroomsCollection.insertOne(classroom);
+    return res.status(201).json({
+      success: true,
+      classroom: { ...classroom, _id: result.insertedId },
+    });
+  } catch (error) {
+    console.error("POST /classrooms error:", error);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+app.post("/classrooms/join", async (req, res) => {
+  try {
+    if (!classroomsCollection) {
+      return res
+        .status(503)
+        .json({ error: "Database not initialized. Please wait." });
+    }
+
+    const { classCode, displayName } = req.body || {};
+
+    if (!classCode) {
+      return res
+        .status(400)
+        .json({ error: "classCode is required to join a classroom." });
+    }
+
+    const classroom = await classroomsCollection.findOne({ classCode });
+    if (!classroom) {
+      return res
+        .status(404)
+        .json({ error: "No classroom found with this code." });
+    }
+
+    // For now we just validate and return the classroom.
+    // You can extend this later to track members with displayName and user id.
+    return res.status(200).json({
+      success: true,
+      classroom,
+      displayName: displayName || null,
+    });
+  } catch (error) {
+    console.error("POST /classrooms/join error:", error);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+// Catch-all route for debugging (must be last)
 app.use((req, res) => {
-  res.status(404).json({ 
-    error: "Route not found", 
+  res.status(404).json({
+    error: "Route not found",
     path: req.path,
     method: req.method,
-    message: "Make sure the server is running and the route is correct"
+    message: "Make sure the server is running and the route is correct",
   });
 });
 
@@ -429,13 +536,15 @@ async function init() {
     usersCollection = db.collection("users");
     coursesCollection = db.collection("courses");
     notesCollection = db.collection("notes");
-    console.log("Collections initialized: users, courses, notes");
+    classroomsCollection = db.collection("classrooms");
+    console.log("Collections initialized: users, courses, notes, classrooms");
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`Health check: http://localhost:${PORT}/health`);
       console.log(`Courses API: http://localhost:${PORT}/courses`);
       console.log(`Notes API: http://localhost:${PORT}/notes`);
+      console.log(`Classrooms API: http://localhost:${PORT}/classrooms`);
     });
   } catch (error) {
     console.error("Failed to initialize server:", error);
