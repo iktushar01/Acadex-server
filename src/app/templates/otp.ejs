@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Your Identity</title>
+</head>
+
+<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+
+<table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#f8fafc;padding:40px 20px;">
+  <tr>
+    <td align="center">
+      
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width:500px;background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.08);">
+        
+        <tr>
+          <td align="center" style="padding:40px 40px 20px 40px;">
+            <div style="background:linear-gradient(135deg, #6366f1 0%, #4338ca 100%);width:60px;height:60px;border-radius:16px;display:inline-block;margin-bottom:20px;line-height:60px;color:#ffffff;font-size:30px;font-weight:bold;">
+              D
+            </div>
+            <h2 style="margin:0;color:#1e293b;font-size:24px;letter-spacing:-0.5px;">DocSchedule<span style="color:#6366f1;">BD</span></h2>
+          </td>
+        </tr>
+
+        <tr>
+          <td align="center" style="padding:0 40px 30px 40px;">
+            <p style="margin:0;color:#64748b;font-size:16px;line-height:1.6;">
+              Hey <span style="color:#1e293b;font-weight:600;"><%= name %></span>, let's get you verified so you can start booking your appointments.
+            </p>
+          </td>
+        </tr>
+
+        <tr>
+          <td align="center" style="padding:0 40px 40px 40px;">
+            <div style="background:#f1f5f9;border-radius:20px;padding:30px;border:1px solid #e2e8f0;">
+              <span style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:2px;font-size:12px;font-weight:700;color:#94a3b8;">Verification Code</span>
+              <div style="color:#1e293b;font-size:42px;font-weight:800;letter-spacing:8px;font-family:monospace;">
+                <%= otp %>
+              </div>
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td align="center" style="padding:0 40px 40px 40px;">
+            <p style="margin:0;color:#94a3b8;font-size:13px;line-height:1.5;">
+              This code expires in <span style="color:#6366f1;font-weight:600;">15 minutes</span>.<br>
+              Security tip: Never share this code with anyone.
+            </p>
+          </td>
+        </tr>
+
+        <tr>
+          <td align="center" style="background:#f8fafc;padding:20px;border-top:1px solid #f1f5f9;">
+            <p style="margin:0;color:#cbd5e1;font-size:12px;font-weight:500;">
+              &copy; <%= new Date().getFullYear() %> DocScheduleBD &bull; Built for better health
+            </p>
+          </td>
+        </tr>
+
+      </table>
+      </td>
+  </tr>
+</table>
+
+</body>
+</html>
