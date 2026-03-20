@@ -9,8 +9,6 @@ import { envVars } from "../../../config/env";
 import { IChangePassWordPayload, ILoginUser, IRegisterStudent, IRequestUser } from "./auth.interface";
 
 
-
-
 const registerStudent = async (payload: IRegisterStudent) => {
     const { name, email, password } = payload;
 
@@ -65,7 +63,7 @@ const registerStudent = async (payload: IRegisterStudent) => {
                 token: data.token,
             };
         } catch (error) {
-            await tx.Student.delete({
+            await tx.student.delete({
                 where: {
                     userId: data.user.id,
                 },
@@ -131,23 +129,7 @@ const getMe = async (user: IRequestUser) => {
             id: user.userId,
         },
         include: {
-            Student: {
-                include: {
-                    appointments: true,
-                    reviews: true,
-                    prescriptions: true,
-                    medicalReports: true,
-                    StudentHealthData: true,
-                }
-            },
-            doctor: {
-                include: {
-                    specialties: true,
-                    appointments: true,
-                    reviews: true,
-                    prescriptions: true,
-                }
-            },
+            student: true,
             admin: true,
         }
     })
@@ -387,14 +369,14 @@ const resetPassword = async (email: string, otp: string, newPassword: string) =>
 }
 
 const googleLoginSuccess = async (session: Record<string, any>) => {
-    const isStudentExists = await prisma.Student.findUnique({
+    const isStudentExists = await prisma.student.findUnique({
         where: {
             userId: session.user.id,
         }
     })
 
     if (!isStudentExists) {
-        await prisma.Student.create({
+        await prisma.student.create({
             data: {
                 userId: session.user.id,
                 name: session.user.name,

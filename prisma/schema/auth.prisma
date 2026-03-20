@@ -18,7 +18,7 @@ model User {
   lockedUntil         DateTime?
   accounts            Account[]
   admin               Admin?
-  app_user            app_user?
+  student             Student?
   sessions            Session[]
 
   @@map("user")

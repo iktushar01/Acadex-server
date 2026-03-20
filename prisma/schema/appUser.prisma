@@ -1,5 +1,5 @@
-model app_user {
-  id            String    @id
+model Student {
+  id            String    @id @default(uuid())
   name          String
   email         String    @unique
   profilePhoto  String?
@@ -8,10 +8,11 @@ model app_user {
   isDeleted     Boolean   @default(false)
   deletedAt     DateTime?
   createdAt     DateTime  @default(now())
-  updatedAt     DateTime
+  updatedAt     DateTime  @updatedAt
   userId        String    @unique
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([email], map: "idx_appUser_email")
   @@index([isDeleted], map: "idx_appUser_isDeleted")
+  @@map("students")
 }
