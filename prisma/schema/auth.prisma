@@ -20,6 +20,11 @@ model User {
   admin               Admin?
   student             Student?
   cr                  CR?
+  createdClassrooms   Classroom[] @relation("ClassroomCreator")
+  resolvedClassrooms  Classroom[] @relation("ClassroomResolver")
+  memberships         Membership[]
+  notes               Note[]      @relation("UserNotes")
+  approvedNotes       Note[]      @relation("ApprovedBy")
   sessions            Session[]
 
   @@map("user")

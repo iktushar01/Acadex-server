@@ -1,0 +1,321 @@
+import { ClassroomStatus, MembershipRole } from "../../../generated/prisma";
+import AppError from "../../errorHelpers/AppError";
+import { prisma } from "../../lib/prisma";
+import { StatusCodes } from "http-status-codes";
+import { IQueryParams } from "../../interfaces/query.interface";
+import {
+  IApproveClassroomPayload,
+  ICreateClassroomPayload,
+  IRejectClassroomPayload,
+} from "./classroom.interface";
+import { QueryBuilder } from "../../utils/QueryBuilder";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/**
+ * Fields the ?searchTerm param will match against (case-insensitive, partial).
+ * Dot-notation = one-level relation: "creator.name" → { creator: { name: { contains } } }
+ */
+const CLASSROOM_SEARCHABLE_FIELDS = [
+  "name",
+  "institutionName",
+  "className",
+  "department",
+  "creator.name",
+  "creator.email",
+];
+
+/**
+ * Whitelist of direct fields the client may filter on.
+ * Any query param NOT in this list is silently ignored by QueryBuilder.filter().
+ */
+const CLASSROOM_FILTERABLE_FIELDS = [
+  "status",
+  "level",
+  "institutionName",
+  "name",
+  "className",
+  "department",
+  "groupName",
+];
+
+// ─── Shared select ────────────────────────────────────────────────────────────
+
+/**
+ * Safe public shape returned in every classroom response.
+ * Keeps creator/resolver to minimal fields — never leaks sensitive user data.
+ */
+const classroomSelect = {
+  id: true,
+  name: true,
+  institutionName: true,
+  level: true,
+  className: true,
+  department: true,
+  groupName: true,
+  description: true,
+  status: true,
+  rejectionReason: true,
+  resolvedAt: true,
+  createdAt: true,
+  updatedAt: true,
+  creator: {
+    select: { id: true, name: true, email: true },
+  },
+  resolver: {
+    select: { id: true, name: true, email: true },
+  },
+} as const;
+
+// ─── Student: Create classroom request ───────────────────────────────────────
+
+/**
+ * Any authenticated student can request a new classroom.
+ * Status starts as PENDING — the creator becomes CR only on admin approval.
+ *
+ * One PENDING request per student at a time to prevent spam.
+ */
+const createClassroom = async (payload: ICreateClassroomPayload) => {
+  const existingPending = await prisma.classroom.findFirst({
+    where: {
+      createdBy: payload.createdBy,
+      status: ClassroomStatus.PENDING,
+    },
+    select: { id: true },
+  });
+
+  if (existingPending) {
+    throw new AppError(
+      StatusCodes.CONFLICT,
+      "You already have a pending classroom request. Please wait for it to be reviewed.",
+    );
+  }
+
+  return prisma.classroom.create({
+    data: {
+      name: payload.name,
+      institutionName: payload.institutionName,
+      level: payload.level,
+      className: payload.className ?? null,
+      department: payload.department ?? null,
+      groupName: payload.groupName ?? null,
+      description: payload.description ?? null,
+      createdBy: payload.createdBy,
+      status: ClassroomStatus.PENDING,
+    },
+    select: classroomSelect,
+  });
+};
+
+// ─── Student: My memberships ──────────────────────────────────────────────────
+
+/**
+ * All classrooms the current user is a member of, with their per-classroom role.
+ * The frontend uses memberRole to decide whether to render the student view or
+ * the CR dashboard for each classroom.
+ */
+const getMyClassrooms = async (userId: string) => {
+  const memberships = await prisma.membership.findMany({
+    where: { userId },
+    include: {
+      classroom: {
+        select: {
+          ...classroomSelect,
+          _count: { select: { memberships: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return memberships.map((m) => ({
+    memberRole: m.role,
+    joinedAt: m.createdAt,
+    classroom: m.classroom,
+  }));
+};
+
+/**
+ * All classroom creation requests submitted by this user (any status).
+ * Lets the student track pending / rejected requests on their dashboard.
+ */
+const getMyClassroomRequests = async (userId: string) => {
+  return prisma.classroom.findMany({
+    where: { createdBy: userId },
+    select: classroomSelect,
+    orderBy: { createdAt: "desc" },
+  });
+};
+
+// ─── Admin: List classrooms ───────────────────────────────────────────────────
+
+/**
+ * Paginated, searchable, filterable classroom list — admin use only.
+ *
+ * Accepts standard QueryBuilder params:
+ *   ?searchTerm=xyz          — searches across CLASSROOM_SEARCHABLE_FIELDS
+ *   ?status=PENDING          — filter by approval status
+ *   ?level=UNIVERSITY        — filter by institution level
+ *   ?institutionName=xyz     — partial match, case-insensitive
+ *   ?page=1&limit=10         — pagination (limit hard-capped at 100)
+ *   ?sortBy=createdAt        — field to sort on (dot-notation supported)
+ *   ?sortOrder=asc|desc      — sort direction (default: desc)
+ *
+ * The IQueryParams type is passed directly from req.query in the controller —
+ * no manual destructuring needed.
+ */
+const getClassrooms = async (queryParams: IQueryParams) => {
+  return new QueryBuilder(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prisma.classroom as any,
+    queryParams,
+    {
+      searchableFields: CLASSROOM_SEARCHABLE_FIELDS,
+      filterableFields: CLASSROOM_FILTERABLE_FIELDS,
+    },
+  )
+    .search()
+    .filter()
+    .sort()
+    .paginate()
+    .execute();
+};
+
+/**
+ * Single classroom detail — member list included.
+ * Accessible to admins and members of that classroom.
+ */
+const getClassroomById = async (classroomId: string) => {
+  const classroom = await prisma.classroom.findUnique({
+    where: { id: classroomId },
+    select: {
+      ...classroomSelect,
+      memberships: {
+        select: {
+          role: true,
+          createdAt: true,
+          user: { select: { id: true, name: true, email: true } },
+        },
+      },
+      _count: { select: { memberships: true } },
+    },
+  });
+
+  if (!classroom) {
+    throw new AppError(StatusCodes.NOT_FOUND, "Classroom not found");
+  }
+
+  return classroom;
+};
+
+// ─── Admin: Approve classroom ─────────────────────────────────────────────────
+
+/**
+ * Approving a classroom does exactly two things inside a single transaction:
+ *   1. Sets classroom.status = APPROVED
+ *   2. Upserts a Membership row for the creator with role = CR
+ *
+ * The creator's global User.role is NOT changed — they remain STUDENT globally.
+ * CR privilege is scoped entirely to this classroom via Membership.role.
+ *
+ * upsert makes the operation idempotent — a double-click by an admin
+ * produces no duplicate row and no error.
+ */
+const approveClassroom = async (payload: IApproveClassroomPayload) => {
+  const classroom = await prisma.classroom.findUnique({
+    where: { id: payload.classroomId },
+    select: { id: true, status: true, createdBy: true },
+  });
+
+  if (!classroom) {
+    throw new AppError(StatusCodes.NOT_FOUND, "Classroom not found");
+  }
+
+  if (classroom.status !== ClassroomStatus.PENDING) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      `Classroom is already ${classroom.status.toLowerCase()}`,
+    );
+  }
+
+  return prisma.$transaction(async (tx) => {
+    // 1. Mark as approved and record which admin resolved it
+    const approved = await tx.classroom.update({
+      where: { id: payload.classroomId },
+      data: {
+        status: ClassroomStatus.APPROVED,
+        resolvedBy: payload.resolvedBy,
+        resolvedAt: new Date(),
+        rejectionReason: null,
+      },
+      select: classroomSelect,
+    });
+
+    // 2. Give the creator the CR role inside this classroom only
+    await tx.membership.upsert({
+      where: {
+        userId_classroomId: {
+          userId: classroom.createdBy,
+          classroomId: payload.classroomId,
+        },
+      },
+      create: {
+        userId: classroom.createdBy,
+        classroomId: payload.classroomId,
+        role: MembershipRole.CR,
+      },
+      update: {
+        role: MembershipRole.CR, // idempotent — no-op if already CR
+      },
+    });
+
+    return approved;
+  });
+};
+
+// ─── Admin: Reject classroom ──────────────────────────────────────────────────
+
+/**
+ * Rejects a pending classroom with a mandatory reason.
+ * The student sees this reason on their dashboard so they know what to address.
+ */
+const rejectClassroom = async (payload: IRejectClassroomPayload) => {
+  const classroom = await prisma.classroom.findUnique({
+    where: { id: payload.classroomId },
+    select: { id: true, status: true },
+  });
+
+  if (!classroom) {
+    throw new AppError(StatusCodes.NOT_FOUND, "Classroom not found");
+  }
+
+  if (classroom.status !== ClassroomStatus.PENDING) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      `Classroom is already ${classroom.status.toLowerCase()}`,
+    );
+  }
+
+  return prisma.classroom.update({
+    where: { id: payload.classroomId },
+    data: {
+      status: ClassroomStatus.REJECTED,
+      rejectionReason: payload.rejectionReason,
+      resolvedBy: payload.resolvedBy,
+      resolvedAt: new Date(),
+    },
+    select: classroomSelect,
+  });
+};
+
+// ─── Exports ──────────────────────────────────────────────────────────────────
+
+export const ClassroomService = {
+  createClassroom,
+  getMyClassrooms,
+  getMyClassroomRequests,
+  getClassrooms,
+  getClassroomById,
+  approveClassroom,
+  rejectClassroom,
+};

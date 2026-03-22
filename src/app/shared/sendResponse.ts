@@ -5,6 +5,7 @@ interface ISendResponse<T> {
     success: boolean;
     data?: T;
     message?: string;
+    meta?: any;
 }
 
 export const sendResponse = <T>(res: Response, data: ISendResponse<T>) => {
@@ -12,5 +13,6 @@ export const sendResponse = <T>(res: Response, data: ISendResponse<T>) => {
         success: data.success,
         data: data.data,
         message: data.message,
+        meta: data.meta,
     });
 }
