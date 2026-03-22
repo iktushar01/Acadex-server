@@ -6,6 +6,7 @@ import { ClassroomController } from "./classroom.controller";
 import {
   classroomFilterZodSchema,
   createClassroomZodSchema,
+  joinClassroomZodSchema,
   rejectClassroomZodSchema,
 } from "./classroom.validation";
 
@@ -26,6 +27,17 @@ router.post(
   checkAuth(Role.STUDENT, Role.SUPER_ADMIN),
   validateRequest(createClassroomZodSchema),
   ClassroomController.createClassroom,
+);
+
+/**
+ * POST /classrooms/join
+ * Join an approved classroom using a code.
+ */
+router.post(
+  "/join",
+  checkAuth(Role.STUDENT, Role.SUPER_ADMIN),
+  validateRequest(joinClassroomZodSchema),
+  ClassroomController.joinClassroom,
 );
 
 /**

@@ -9,6 +9,7 @@ import {
   IRejectClassroomPayload,
 } from "./classroom.interface";
 import { QueryBuilder } from "../../utils/QueryBuilder";
+import { generateJoinCode } from "../../utils/generateJoinCode";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ const classroomSelect = {
   description: true,
   status: true,
   rejectionReason: true,
+  joinCode: true,
   resolvedAt: true,
   createdAt: true,
   updatedAt: true,
@@ -91,6 +93,21 @@ const createClassroom = async (payload: ICreateClassroomPayload) => {
     );
   }
 
+  // ensure uniqueness for joinCode (6 chars)
+  let joinCode = generateJoinCode();
+  let isUnique = false;
+  while (!isUnique) {
+    const existing = await prisma.classroom.findFirst({
+      where: { joinCode },
+      select: { id: true },
+    });
+    if (!existing) {
+      isUnique = true;
+    } else {
+      joinCode = generateJoinCode();
+    }
+  }
+
   return prisma.classroom.create({
     data: {
       name: payload.name,
@@ -101,6 +118,7 @@ const createClassroom = async (payload: ICreateClassroomPayload) => {
       groupName: payload.groupName ?? null,
       description: payload.description ?? null,
       createdBy: payload.createdBy,
+      joinCode,
       status: ClassroomStatus.PENDING,
     },
     select: classroomSelect,
@@ -308,6 +326,65 @@ const rejectClassroom = async (payload: IRejectClassroomPayload) => {
   });
 };
 
+// ─── Student: Join classroom via code ─────────────────────────────────────────
+
+/**
+ * Any student can join an APPROVED classroom if they have the unique joinCode.
+ * They join as a regular STUDENT; CR status is only granted on approval of
+ * the request.
+ */
+const joinClassroom = async (payload: {
+  userId: string;
+  joinCode: string;
+}) => {
+  const classroom = await prisma.classroom.findUnique({
+    where: { joinCode: payload.joinCode },
+    select: { id: true, status: true },
+  });
+
+  if (!classroom) {
+    throw new AppError(
+      StatusCodes.NOT_FOUND,
+      "No classroom found with that join code.",
+    );
+  }
+
+  if (classroom.status !== ClassroomStatus.APPROVED) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      "This classroom is still pending or was rejected.",
+    );
+  }
+
+  const existing = await prisma.membership.findUnique({
+    where: {
+      userId_classroomId: {
+        userId: payload.userId,
+        classroomId: classroom.id,
+      },
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    throw new AppError(
+      StatusCodes.CONFLICT,
+      "You are already a member of this classroom.",
+    );
+  }
+
+  return prisma.membership.create({
+    data: {
+      userId: payload.userId,
+      classroomId: classroom.id,
+      role: MembershipRole.STUDENT,
+    },
+    include: {
+      classroom: { select: classroomSelect },
+    },
+  });
+};
+
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
 export const ClassroomService = {
@@ -318,4 +395,5 @@ export const ClassroomService = {
   getClassroomById,
   approveClassroom,
   rejectClassroom,
+  joinClassroom,
 };

@@ -11,6 +11,7 @@ model Classroom {
   groupName       String?          
 
   description     String?
+  joinCode        String           @unique
 
   // Approval System
   status          ClassroomStatus  @default(PENDING)

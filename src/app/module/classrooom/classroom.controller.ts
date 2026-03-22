@@ -68,6 +68,26 @@ const getMyClassroomRequests = catchAsync(async (req: Request, res: Response) =>
   });
 });
 
+/**
+ * POST /classrooms/join
+ * Any student can join an approved classroom via its unique 6-char join code.
+ */
+const joinClassroom = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as IRequestUser;
+
+  const result = await ClassroomService.joinClassroom({
+    userId: user.userId,
+    joinCode: req.body.joinCode,
+  });
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Successfully joined the classroom.",
+    data: result,
+  });
+});
+
 // ─── Shared ───────────────────────────────────────────────────────────────────
 
 /**
@@ -159,4 +179,5 @@ export const ClassroomController = {
   getClassrooms,
   approveClassroom,
   rejectClassroom,
+  joinClassroom,
 };

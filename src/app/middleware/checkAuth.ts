@@ -61,10 +61,9 @@ export const checkAuth = (...authRoles: Role[]) => async (req: Request, res: Res
                 }
 
                 req.user = {
-                    userId : user.id,
-                    role : user.role,
-                    email : user.email,
-                }
+                    ...user,
+                    userId: user.id,
+                } as any;
             }
 
             const accessToken = cookieUtils.getCookie(req, 'accessToken');
@@ -87,6 +86,21 @@ export const checkAuth = (...authRoles: Role[]) => async (req: Request, res: Res
 
         if (!verifiedToken.success) {
             throw new AppError(StatusCodes.UNAUTHORIZED, 'Unauthorized access! Invalid access token.');
+        }
+
+        req.user = verifiedToken.decoded as any;
+
+        const isUserExist = await prisma.user.findUnique({
+            where: { id: (verifiedToken.decoded as any).userId },
+            select: { id: true, status: true, isDeleted: true }
+        });
+
+        if (!isUserExist) {
+            throw new AppError(StatusCodes.UNAUTHORIZED, 'Unauthorized access! User no longer exists.');
+        }
+
+        if (isUserExist.status === UserStatus.SUSPENDED || isUserExist.status === UserStatus.DELETED || isUserExist.isDeleted) {
+            throw new AppError(StatusCodes.UNAUTHORIZED, 'Unauthorized access! User is not active or has been deleted.');
         }
 
         if (authRoles.length > 0 && !authRoles.includes(verifiedToken.decoded!.role as Role)) {

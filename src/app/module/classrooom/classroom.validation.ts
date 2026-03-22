@@ -58,7 +58,17 @@ export const rejectClassroomZodSchema = z.object({
     .max(500, "Reason must be at most 500 characters"),
 });
 
-// ─── List / filter (query params) ─────────────────────────────────────────────
+// ─── Join Classroom ───────────────────────────────────────────────────────────
+
+export const joinClassroomZodSchema = z.object({
+  joinCode: z
+    .string({ message: "Join code is required" })
+    .length(6, "Join code must be exactly 6 characters")
+    .regex(/^[A-Za-z0-9]+$/, "Join code must be alphanumeric")
+    .trim(),
+});
+
+ // ─── List / filter (query params) ─────────────────────────────────────────────
 
 export const classroomFilterZodSchema = z.object({
   status: z
