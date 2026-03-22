@@ -1,6 +1,5 @@
 enum Role {
   STUDENT
-  CR
   ADMIN
   SUPER_ADMIN
 }
@@ -16,4 +15,27 @@ enum Gender {
   MALE
   FEMALE
   OTHER
+}
+
+enum ClassroomStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum MembershipRole {
+  STUDENT
+  CR
+}
+
+enum NoteStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum InstitutionLevel {
+  SCHOOL
+  COLLEGE
+  UNIVERSITY
 }

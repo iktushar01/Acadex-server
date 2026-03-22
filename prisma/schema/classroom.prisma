@@ -1,0 +1,115 @@
+model Classroom {
+  id              String           @id @default(uuid())
+
+  // Basic Info
+  name            String
+  institutionName String
+  level           InstitutionLevel
+
+  className       String?          
+  department      String?          
+  groupName       String?          
+
+  description     String?
+
+  // Approval System
+  status          ClassroomStatus  @default(PENDING)
+  rejectionReason String?
+
+  // Creator
+  createdBy       String
+  creator         User             @relation("ClassroomCreator", fields: [createdBy], references: [id])
+
+  // Admin resolution
+  resolvedBy      String?
+  resolver        User?            @relation("ClassroomResolver", fields: [resolvedBy], references: [id])
+  resolvedAt      DateTime?
+
+  // Timestamps
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relations
+  memberships     Membership[]
+  subjects        Subject[]
+  notes           Note[]
+
+  @@index([status])
+  @@index([createdBy])
+  @@map("classrooms")
+}
+
+
+
+model Membership {
+  id            String          @id @default(uuid())
+
+  userId        String
+  classroomId   String
+
+  role          MembershipRole  @default(STUDENT)
+
+  createdAt     DateTime        @default(now())
+
+  // Relations
+  user          User            @relation(fields: [userId], references: [id])
+  classroom     Classroom       @relation(fields: [classroomId], references: [id])
+
+  @@unique([userId, classroomId])
+  @@map("memberships")
+}
+
+
+
+
+
+model Subject {
+  id            String      @id @default(uuid())
+  name          String
+
+  classroomId   String
+  classroom     Classroom   @relation(fields: [classroomId], references: [id])
+
+  createdAt     DateTime    @default(now())
+
+  // Relations
+  notes         Note[]
+
+  @@index([classroomId])
+  @@map("subjects")
+}
+
+
+
+model Note {
+  id            String      @id @default(uuid())
+
+  title         String
+  description   String?
+  fileUrl       String
+  type          String      // pdf | link | text
+
+  status        NoteStatus  @default(PENDING)
+
+  classroomId   String
+  subjectId     String
+
+  uploadedBy    String
+  approvedBy    String?
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations
+  classroom     Classroom   @relation(fields: [classroomId], references: [id])
+  subject       Subject     @relation(fields: [subjectId], references: [id])
+
+  uploader      User        @relation("UserNotes", fields: [uploadedBy], references: [id])
+  approver      User?       @relation("ApprovedBy", fields: [approvedBy], references: [id])
+
+  @@index([classroomId])
+  @@index([subjectId])
+  @@map("notes")
+}
+
+
