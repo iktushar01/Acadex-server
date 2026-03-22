@@ -1,4 +1,4 @@
-import { Role, User, UserStatus } from "../../../generated/prisma";
+import { Role, UserStatus } from "../../../generated/prisma";
 import AppError from "../../errorHelpers/AppError";
 import { auth } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
@@ -6,404 +6,377 @@ import { StatusCodes } from "http-status-codes";
 import { tokenUtils } from "../../utils/token";
 import { jwtUtils } from "../../utils/jwt";
 import { envVars } from "../../../config/env";
-import { IChangePassWordPayload, ILoginUser, IRegisterStudent, IRequestUser } from "./auth.interface";
+import {
+    IChangePassWordPayload,
+    ILoginUser,
+    IRegisterStudent,
+    IRequestUser,
+} from "./auth.interface";
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Builds both JWT tokens from a consistent user-shaped object.
+ * Centralised so every code path produces identical token payloads.
+ */
+const buildTokenPair = (user: {
+    id: string;
+    role: Role;
+    name: string;
+    email: string;
+    status: UserStatus;
+    isDeleted: boolean;
+    emailVerified: boolean;
+}) => {
+    const payload = {
+        userId: user.id,
+        role: user.role,
+        name: user.name,
+        email: user.email,
+        status: user.status,
+        isDeleted: user.isDeleted,
+        emailVerified: user.emailVerified,
+    };
+    return {
+        accessToken: tokenUtils.getAccessToken(payload),
+        refreshToken: tokenUtils.getRefreshToken(payload),
+    };
+};
+
+// ─── Register ─────────────────────────────────────────────────────────────────
 
 const registerStudent = async (payload: IRegisterStudent) => {
     const { name, email, password } = payload;
 
-    const data = await auth.api.signUpEmail({
-        body: {
-            name,
-            email,
-            password,
-        }
-    })
+    // Check for duplicate before hitting better-auth so we control the error shape
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+        throw new AppError(StatusCodes.CONFLICT, "A user with this email already exists");
+    }
 
-    if (!data.user) {
+    // Create the auth user first
+    const authData = await auth.api.signUpEmail({
+        body: { name, email, password },
+    });
+
+    if (!authData?.user) {
         throw new AppError(StatusCodes.BAD_REQUEST, "User registration failed");
     }
 
-    //:TODO: create Student profile 
-    const Student = await prisma.$transaction(async (tx) => {
-        try {
-            const StudentTx = await tx.student.create({
+    try {
+        // Create the student profile inside a transaction.
+        // If this fails the catch block below rolls back the auth user.
+        // We do NOT put a try/catch inside the transaction callback — any throw
+        // there automatically rolls back the transaction already.
+        const student = await prisma.$transaction(async (tx) => {
+            return tx.student.create({
                 data: {
-                    userId: data.user.id,
-                    name: payload.name,
-                    email: payload.email,
+                    userId: authData.user.id,
+                    name,
+                    email,
                 },
             });
+        });
 
-            const accessToken = tokenUtils.getAccessToken({
-                userId: data.user.id,
-                role: data.user.role as Role,
-                name: data.user.name,
-                email: data.user.email,
-                status: data.user.status as UserStatus,
-                isDeleted: !!data.user.isDeleted,
-                emailVerified: data.user.emailVerified,
-            });
+        const { accessToken, refreshToken } = buildTokenPair({
+            id: authData.user.id,
+            role: authData.user.role as Role,
+            name: authData.user.name,
+            email: authData.user.email,
+            status: authData.user.status as UserStatus,
+            isDeleted: !!authData.user.isDeleted,
+            emailVerified: authData.user.emailVerified,
+        });
 
-            const refreshToken = tokenUtils.getRefreshToken({
-                userId: data.user.id,
-                role: data.user.role as Role,
-                name: data.user.name,
-                email: data.user.email,
-                status: data.user.status as UserStatus,
-                isDeleted: !!data.user.isDeleted,
-                emailVerified: data.user.emailVerified,
-            });
-
-            return {
-                ...data,
-                Student: StudentTx,
-                accessToken,
-                refreshToken,
-                token: data.token,
-            };
-        } catch (error) {
-            await tx.student.delete({
-                where: {
-                    userId: data.user.id,
-                },
-            });
-            throw error;
+        return {
+            user: authData.user,
+            student,
+            token: authData.token,
+            accessToken,
+            refreshToken,
+        };
+    } catch (error) {
+        // Roll back the auth user so the email is not permanently locked
+        try {
+            await prisma.user.delete({ where: { id: authData.user.id } });
+        } catch (rollbackErr) {
+            console.error("Auth user rollback failed:", authData.user.id, rollbackErr);
         }
-    })
+        throw error;
+    }
+};
 
-    return Student;
-}
+// ─── Login ────────────────────────────────────────────────────────────────────
 
 const loginUser = async (payload: ILoginUser) => {
     const { email, password } = payload;
-    const data = await auth.api.signInEmail({
-        body: {
-            email,
-            password,
-        }
-    })
 
-    if (data.user.status === UserStatus.SUSPENDED) {
-        throw new AppError(StatusCodes.BAD_REQUEST, "User is suspended");
+    // Guard checks before attempting sign-in (avoids leaking auth errors)
+    const dbUser = await prisma.user.findUnique({ where: { email } });
+
+    if (!dbUser) {
+        // Use UNAUTHORIZED — do not confirm whether the email exists
+        throw new AppError(StatusCodes.UNAUTHORIZED, "Invalid email or password");
     }
 
-    if (data.user.isDeleted || data.user.status === UserStatus.DELETED) {
-        throw new AppError(StatusCodes.BAD_REQUEST, "User is deleted");
+    if (dbUser.isDeleted || dbUser.status === UserStatus.DELETED) {
+        throw new AppError(StatusCodes.FORBIDDEN, "This account has been deleted");
     }
 
-    if (!data.user) {
-        throw new AppError(StatusCodes.UNAUTHORIZED, "User login failed");
+    if (dbUser.status === UserStatus.SUSPENDED) {
+        throw new AppError(StatusCodes.FORBIDDEN, "This account has been suspended");
     }
 
-    const { user } = data;
-    const accessToken = tokenUtils.getAccessToken({
-        userId: user.id,
-        role: user.role,
-        name: user.name,
-        email: user.email,
-        status: user.status,
-        isDeleted: user.isDeleted,
-        emailVerified: user.emailVerified,
-    })
-    const refreshToken = tokenUtils.getRefreshToken({
-        userId: user.id,
-        role: user.role,
-        name: user.name,
-        email: user.email,
-        status: user.status,
-        isDeleted: user.isDeleted,
-        emailVerified: user.emailVerified,
-    })
+    // Credentials are validated by better-auth
+    const authData = await auth.api.signInEmail({ body: { email, password } });
+
+    const { accessToken, refreshToken } = buildTokenPair({
+        id: authData.user.id,
+        role: authData.user.role as Role,
+        name: authData.user.name,
+        email: authData.user.email,
+        status: authData.user.status as UserStatus,
+        isDeleted: !!authData.user.isDeleted,
+        emailVerified: authData.user.emailVerified,
+    });
+
     return {
-        ...data,
+        user: authData.user,
+        token: authData.token,
         accessToken,
         refreshToken,
-        token: data.token,
-    }
-}
+    };
+};
+
+// ─── Get Me ───────────────────────────────────────────────────────────────────
 
 const getMe = async (user: IRequestUser) => {
-    const isUserExist = await prisma.user.findUnique({
-        where: {
-            id: user.userId,
-        },
+    const dbUser = await prisma.user.findUnique({
+        where: { id: user.userId },
         include: {
             student: true,
             admin: true,
-        }
-    })
-    if (!isUserExist) {
+        },
+    });
+
+    if (!dbUser) {
         throw new AppError(StatusCodes.NOT_FOUND, "User not found");
     }
-    return isUserExist;
-}
 
-const getNewTokens = async (refreshToken: string, sessionToken: string) => {
-    if (!refreshToken || !sessionToken) {
-        throw new AppError(StatusCodes.UNAUTHORIZED, "Invalid request. Tokens are missing.");
+    return dbUser;
+};
+
+// ─── Refresh tokens ───────────────────────────────────────────────────────────
+
+const getNewTokens = async (oldRefreshToken: string, sessionToken: string) => {
+    // Verify the session is still alive in the DB
+    const session = await prisma.session.findUnique({
+        where: { token: sessionToken },
+        include: { user: true },
+    });
+
+    if (!session) {
+        throw new AppError(StatusCodes.UNAUTHORIZED, "Session not found or expired");
     }
 
-    const isSessionTokenExist = await prisma.session.findUnique({
-        where: {
-            token: sessionToken
-        },
-        include: {
-            user: true,
-        }
-    })
-    if (!isSessionTokenExist) {
-        throw new AppError(StatusCodes.UNAUTHORIZED, "Invalid session token");
-    }
+    // Verify the refresh JWT is valid and not tampered with
+    const verified = jwtUtils.verifyToken(oldRefreshToken, envVars.REFRESH_TOKEN_SECRET);
 
-    const varifiedRefreshToken = jwtUtils.verifyToken(refreshToken, envVars.REFRESH_TOKEN_SECRET);
-
-    if (!varifiedRefreshToken.success || !varifiedRefreshToken.decoded) {
+    if (!verified.success || !verified.decoded) {
         throw new AppError(StatusCodes.UNAUTHORIZED, "Invalid refresh token");
     }
 
-    const { decoded } = varifiedRefreshToken;
+    const { decoded } = verified;
 
-    const newAccessToken = tokenUtils.getAccessToken({
-        userId: decoded.userId,
+    const { accessToken, refreshToken: newRefreshToken } = buildTokenPair({
+        id: decoded.userId,
         role: decoded.role,
         name: decoded.name,
         email: decoded.email,
         status: decoded.status,
         isDeleted: decoded.isDeleted,
         emailVerified: decoded.emailVerified,
-    })
-    const newRefreshToken = tokenUtils.getRefreshToken({
-        userId: decoded.userId,
-        role: decoded.role,
-        name: decoded.name,
-        email: decoded.email,
-        status: decoded.status,
-        isDeleted: decoded.isDeleted,
-        emailVerified: decoded.emailVerified,
-    })
+    });
 
-
-    const { token } = await prisma.session.update({
-        where: {
-            token: sessionToken
-        },
+    // The DB session token is better-auth's own token — we intentionally do NOT
+    // overwrite it with our JWT refresh token. We just touch the expiry so the
+    // session stays alive while the user is active.
+    await prisma.session.update({
+        where: { token: sessionToken },
         data: {
-            token: newRefreshToken,
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
             updatedAt: new Date(),
-        }
-    })
+        },
+    });
+
     return {
-        accessToken: newAccessToken,
+        accessToken,
         refreshToken: newRefreshToken,
-        updatedToken: token,
-    }
+    };
+};
 
-}
+// ─── Change Password ──────────────────────────────────────────────────────────
 
-const changePassword = async (payload: IChangePassWordPayload, sessionToken: string) => {
+const changePassword = async (
+    payload: IChangePassWordPayload,
+    sessionToken: string,
+) => {
     const session = await auth.api.getSession({
-        headers: new Headers({
-            Authorization: `Bearer ${sessionToken}`
-        })
-    })
+        headers: new Headers({ Authorization: `Bearer ${sessionToken}` }),
+    });
 
-    if (!session) {
-        throw new AppError(StatusCodes.UNAUTHORIZED, "Invalid session token");
+    if (!session?.user) {
+        throw new AppError(StatusCodes.UNAUTHORIZED, "Invalid or expired session");
     }
 
     const { currentPassword, newPassword } = payload;
 
-    const result = await auth.api.changePassword({
-        body: {
-            currentPassword,
-            newPassword,
-            revokeOtherSessions: true,
-        },
-        headers: new Headers({
-            Authorization: `Bearer ${sessionToken}`
-        })
-    })
+    await auth.api.changePassword({
+        body: { currentPassword, newPassword, revokeOtherSessions: true },
+        headers: new Headers({ Authorization: `Bearer ${sessionToken}` }),
+    });
 
+    // Clear the forced-password-change flag if it was set
     if (session.user.needPasswordChange) {
         await prisma.user.update({
-            where: {
-                id: session.user.id,
-            },
-            data: {
-                needPasswordChange: false,
-            }
-        })
+            where: { id: session.user.id },
+            data: { needPasswordChange: false },
+        });
     }
 
-    const accessToken = tokenUtils.getAccessToken({
-        userId: session.user.id,
-        role: session.user.role,
+    const { accessToken, refreshToken } = buildTokenPair({
+        id: session.user.id,
+        role: session.user.role as Role,
         name: session.user.name,
         email: session.user.email,
-        status: session.user.status,
-        isDeleted: session.user.isDeleted,
+        status: session.user.status as UserStatus,
+        isDeleted: !!session.user.isDeleted,
         emailVerified: session.user.emailVerified,
     });
 
-    const refreshToken = tokenUtils.getRefreshToken({
-        userId: session.user.id,
-        role: session.user.role,
-        name: session.user.name,
-        email: session.user.email,
-        status: session.user.status,
-        isDeleted: session.user.isDeleted,
-        emailVerified: session.user.emailVerified,
-    });
+    return { accessToken, refreshToken };
+};
 
-
-    return {
-        ...result,
-        accessToken,
-        refreshToken,
-    }
-}
+// ─── Logout ───────────────────────────────────────────────────────────────────
 
 const logoutUser = async (sessionToken: string) => {
-    const result = await auth.api.signOut({
-        headers: new Headers({
-            Authorization: `Bearer ${sessionToken}`
-        })
-    })
+    if (!sessionToken) {
+        throw new AppError(StatusCodes.UNAUTHORIZED, "No active session");
+    }
 
-    return result;
-}
+    return auth.api.signOut({
+        headers: new Headers({ Authorization: `Bearer ${sessionToken}` }),
+    });
+};
 
+// ─── Email verification ───────────────────────────────────────────────────────
 
 const verifyEmail = async (email: string, otp: string) => {
+    const result = await auth.api.verifyEmailOTP({ body: { email, otp } });
 
-    const result = await auth.api.verifyEmailOTP({
-        body: {
-            email,
-            otp,
-        }
-    })
-
-    if (result.status && !result.user.emailVerified) {
+    // better-auth may not always flush the DB field — ensure it is set
+    if (result?.status && !result.user?.emailVerified) {
         await prisma.user.update({
-            where: {
-                email,
-            },
-            data: {
-                emailVerified: true,
-            }
-        })
+            where: { email },
+            data: { emailVerified: true },
+        });
     }
-}
+};
+
+// ─── Forget / Reset password ──────────────────────────────────────────────────
 
 const forgetPassword = async (email: string) => {
-    const isUserExist = await prisma.user.findUnique({
-        where: {
-            email,
-        }
-    })
+    const user = await prisma.user.findUnique({ where: { email } });
 
-    if (!isUserExist) {
+    if (!user || user.isDeleted || user.status === UserStatus.DELETED) {
+        // Return generic success to avoid email enumeration
+        return;
+    }
+
+    if (!user.emailVerified) {
+        throw new AppError(StatusCodes.BAD_REQUEST, "Please verify your email first");
+    }
+
+    await auth.api.requestPasswordResetEmailOTP({ body: { email } });
+};
+
+const resetPassword = async (
+    email: string,
+    otp: string,
+    newPassword: string,
+) => {
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user || user.isDeleted || user.status === UserStatus.DELETED) {
         throw new AppError(StatusCodes.NOT_FOUND, "User not found");
     }
 
-    if (!isUserExist.emailVerified) {
-        throw new AppError(StatusCodes.BAD_REQUEST, "Email not verified");
-    }
-
-    if (isUserExist.isDeleted || isUserExist.status === UserStatus.DELETED) {
-        throw new AppError(StatusCodes.NOT_FOUND, "User not found");
-    }
-
-    await auth.api.requestPasswordResetEmailOTP({
-        body: {
-            email,
-        }
-    })
-}
-
-const resetPassword = async (email: string, otp: string, newPassword: string) => {
-    const isUserExist = await prisma.user.findUnique({
-        where: {
-            email,
-        }
-    })
-
-    if (!isUserExist) {
-        throw new AppError(StatusCodes.NOT_FOUND, "User not found");
-    }
-
-    if (!isUserExist.emailVerified) {
-        throw new AppError(StatusCodes.BAD_REQUEST, "Email not verified");
-    }
-
-    if (isUserExist.isDeleted || isUserExist.status === UserStatus.DELETED) {
-        throw new AppError(StatusCodes.NOT_FOUND, "User not found");
+    if (!user.emailVerified) {
+        throw new AppError(StatusCodes.BAD_REQUEST, "Please verify your email first");
     }
 
     await auth.api.resetPasswordEmailOTP({
-        body: {
-            email,
-            otp,
-            password: newPassword,
-        }
-    })
+        body: { email, otp, password: newPassword },
+    });
 
-    if (isUserExist.needPasswordChange) {
-        await prisma.user.update({
-            where: {
-                id: isUserExist.id,
-            },
-            data: {
-                needPasswordChange: false,
-            }
-        })
-    }
+    // Invalidate all sessions after a password reset for security
+    await prisma.$transaction([
+        prisma.session.deleteMany({ where: { userId: user.id } }),
+        ...(user.needPasswordChange
+            ? [
+                  prisma.user.update({
+                      where: { id: user.id },
+                      data: { needPasswordChange: false },
+                  }),
+              ]
+            : []),
+    ]);
+};
 
-    await prisma.session.deleteMany({
-        where: {
-            userId: isUserExist.id,
-        }
-    })
-}
+// ─── Google OAuth ─────────────────────────────────────────────────────────────
 
-const googleLoginSuccess = async (session: Record<string, any>) => {
-    const isStudentExists = await prisma.student.findUnique({
-        where: {
-            userId: session.user.id,
-        }
-    })
+const googleLoginSuccess = async (session: {
+    user: {
+        id: string;
+        name: string;
+        email: string;
+        role: string;
+        status: string;
+        isDeleted?: boolean | null;
+        emailVerified: boolean;
+    };
+}) => {
+    const { user } = session;
 
-    if (!isStudentExists) {
+    // Lazily create the student profile if this is the first Google sign-in
+    const studentExists = await prisma.student.findUnique({
+        where: { userId: user.id },
+    });
+
+    if (!studentExists) {
         await prisma.student.create({
             data: {
-                userId: session.user.id,
-                name: session.user.name,
-                email: session.user.email,
-            }
-
-        })
+                userId: user.id,
+                name: user.name,
+                email: user.email,
+            },
+        });
     }
 
-    const accessToken = tokenUtils.getAccessToken({
-        userId: session.user.id,
-        role: session.user.role,
-        name: session.user.name,
+    const { accessToken, refreshToken } = buildTokenPair({
+        id: user.id,
+        role: user.role as Role,
+        name: user.name,
+        email: user.email,
+        status: user.status as UserStatus,
+        isDeleted: !!user.isDeleted,
+        emailVerified: user.emailVerified,
     });
 
-    const refreshToken = tokenUtils.getRefreshToken({
-        userId: session.user.id,
-        role: session.user.role,
-        name: session.user.name,
-    });
+    return { accessToken, refreshToken };
+};
 
-    return {
-        accessToken,
-        refreshToken,
-    }
-}
-
+// ─── Exports ──────────────────────────────────────────────────────────────────
 
 export const AuthService = {
     registerStudent,
@@ -416,4 +389,4 @@ export const AuthService = {
     forgetPassword,
     resetPassword,
     googleLoginSuccess,
-}
+};

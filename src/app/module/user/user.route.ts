@@ -7,48 +7,35 @@ import {
     approveCRApplicationZodSchema,
     createAdminZodSchema,
     createCRApplicationZodSchema,
-    createStudentZodSchema,
 } from "./user.validation";
 
 const router = Router();
 
-// ─── Public ──────────────────────────────────────────────────────────────────
-
-/**
- * POST /users/create-student
- * Open registration — no auth required.
- */
-router.post(
-    "/create-student",
-    validateRequest(createStudentZodSchema),
-    UserController.createStudent,
-);
-
-// ─── Authenticated Student ───────────────────────────────────────────────────
-
-/**
- * POST /users/apply-cr
- * Any verified STUDENT may apply to become a CR.
- */
-router.post(
-    "/apply-cr",
-    checkAuth(Role.STUDENT, Role.CR),   // CR can re-apply for a different semester
-    validateRequest(createCRApplicationZodSchema),
-    UserController.applyCRRole,
-);
-
-// ─── Admin / Super Admin ─────────────────────────────────────────────────────
+// ─── Admin provisioning ───────────────────────────────────────────────────────
 
 /**
  * POST /users/create-admin
- * Both ADMIN and SUPER_ADMIN can hit this route.
- * The service layer enforces that only SUPER_ADMIN can assign SUPER_ADMIN.
+ * Both ADMIN and SUPER_ADMIN can reach this route.
+ * The service layer enforces that only SUPER_ADMIN may assign SUPER_ADMIN.
  */
 router.post(
     "/create-admin",
     checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
     validateRequest(createAdminZodSchema),
     UserController.createAdmin,
+);
+
+// ─── CR application flow ──────────────────────────────────────────────────────
+
+/**
+ * POST /users/apply-cr
+ * Any verified STUDENT (or existing CR applying for a different semester) may apply.
+ */
+router.post(
+    "/apply-cr",
+    checkAuth(Role.STUDENT, Role.CR),
+    validateRequest(createCRApplicationZodSchema),
+    UserController.applyCRRole,
 );
 
 /**

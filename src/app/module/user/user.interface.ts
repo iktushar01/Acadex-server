@@ -1,40 +1,6 @@
-import { Gender, Role } from "../../../generated/prisma";
+import { Role } from "../../../generated/prisma";
 
-// ─── Student ────────────────────────────────────────────────────────────────
-
-export interface IStudentCore {
-    name: string;
-    email: string;
-    profilePhoto?: string;
-    contactNumber?: string;
-    address?: string;
-    gender: Gender;
-}
-
-export interface ICreateStudentPayload {
-    password: string;
-    student: IStudentCore;
-}
-
-// ─── CR (Class Representative) ──────────────────────────────────────────────
-
-/**
- * CR application submitted by a student via form/email.
- * Admin reviews and approves/rejects. On approval, student's role is
- * promoted to CR and a CR record is created.
- */
-export interface ICreateCRApplicationPayload {
-    studentId: string;       // The student applying for CR
-    semesterId?: string;     // Which semester/class they want to represent
-    reason: string;          // Why they want to be CR
-}
-
-export interface IApproveCRApplicationPayload {
-    applicationId: string;
-    adminNote?: string;
-}
-
-// ─── Admin / Super Admin ─────────────────────────────────────────────────────
+// ─── Admin ────────────────────────────────────────────────────────────────────
 
 export interface IAdminCore {
     name: string;
@@ -44,8 +10,13 @@ export interface IAdminCore {
 }
 
 /**
- * Only SUPER_ADMIN can create another SUPER_ADMIN.
- * ADMIN can only create ADMIN — enforced at service layer.
+ * Payload for creating an ADMIN or SUPER_ADMIN user.
+ *
+ * Role-elevation rules (enforced in service layer):
+ *  - SUPER_ADMIN → may create ADMIN or SUPER_ADMIN
+ *  - ADMIN       → may only create ADMIN
+ *
+ * Super admin bootstrapping is handled by a seed script, not this endpoint.
  */
 export interface ICreateAdminPayload {
     password: string;
@@ -53,7 +24,23 @@ export interface ICreateAdminPayload {
     role: Extract<Role, "ADMIN" | "SUPER_ADMIN">;
 }
 
-// ─── Shared ──────────────────────────────────────────────────────────────────
+// ─── CR Application ───────────────────────────────────────────────────────────
+
+export interface ICreateCRApplicationPayload {
+    /** Resolved from the authenticated session — never taken from request body. */
+    studentId: string;
+    /** Which semester/class the student wants to represent (optional). */
+    semesterId?: string;
+    /** The student's written reason for applying. */
+    reason: string;
+}
+
+export interface IApproveCRApplicationPayload {
+    applicationId: string;
+    adminNote?: string;
+}
+
+// ─── Shared ───────────────────────────────────────────────────────────────────
 
 export interface IUserFilterPayload {
     email?: string;

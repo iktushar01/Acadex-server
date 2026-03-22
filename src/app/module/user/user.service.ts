@@ -1,16 +1,15 @@
-import { StatusCodes } from "http-status-codes";
 import { Role } from "../../../generated/prisma";
 import AppError from "../../errorHelpers/AppError";
 import { auth } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
+import { StatusCodes } from "http-status-codes";
 import {
     IApproveCRApplicationPayload,
     ICreateAdminPayload,
     ICreateCRApplicationPayload,
-    ICreateStudentPayload,
 } from "./user.interface";
 
-// ─── Shared select shapes ────────────────────────────────────────────────────
+// ─── Shared select shapes ─────────────────────────────────────────────────────
 
 const userPublicSelect = {
     id: true,
@@ -25,70 +24,73 @@ const userPublicSelect = {
     updatedAt: true,
 } as const;
 
-const studentPublicSelect = {
-    id: true,
-    userId: true,
-    name: true,
-    email: true,
-    profilePhoto: true,
-    contactNumber: true,
-    address: true,
-    gender: true,
-    createdAt: true,
-    updatedAt: true,
-    user: { select: userPublicSelect },
-} as const;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-/** Throws CONFLICT if the email is already registered. */
 const assertEmailNotTaken = async (email: string) => {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-        throw new AppError(StatusCodes.CONFLICT, "A user with this email already exists");
+        throw new AppError(
+            StatusCodes.CONFLICT,
+            "A user with this email already exists",
+        );
     }
 };
 
-/**
- * Rolls back an auth user that was already created when the subsequent
- * DB transaction fails.  Swallows its own errors so the original error
- * is always re-thrown to the caller.
- */
 const rollbackAuthUser = async (userId: string) => {
     try {
         await prisma.user.delete({ where: { id: userId } });
-    } catch (rollbackErr) {
-        console.error("Rollback failed for user:", userId, rollbackErr);
+    } catch (err) {
+        console.error("Rollback failed for auth user:", userId, err);
     }
 };
 
-// ─── Student ─────────────────────────────────────────────────────────────────
+// ─── Admin ────────────────────────────────────────────────────────────────────
 
-const createStudent = async (payload: ICreateStudentPayload) => {
-    await assertEmailNotTaken(payload.student.email);
+/**
+ * Creates an ADMIN or SUPER_ADMIN account.
+ *
+ * The first SUPER_ADMIN is created via the seed script — this endpoint is
+ * for subsequent admin/super-admin provisioning by an already-authenticated admin.
+ *
+ * Role elevation rules:
+ *  - SUPER_ADMIN can create ADMIN or SUPER_ADMIN
+ *  - ADMIN can only create ADMIN
+ */
+const createAdmin = async (
+    payload: ICreateAdminPayload,
+    requestingUserRole: Role,
+) => {
+    if (
+        payload.role === Role.SUPER_ADMIN &&
+        requestingUserRole !== Role.SUPER_ADMIN
+    ) {
+        throw new AppError(
+            StatusCodes.FORBIDDEN,
+            "Only a Super Admin can create another Super Admin",
+        );
+    }
+
+    await assertEmailNotTaken(payload.admin.email);
 
     const { user: authUser } = await auth.api.signUpEmail({
         body: {
-            email: payload.student.email,
+            ...payload.admin,
             password: payload.password,
-            name: payload.student.name,
-            role: Role.STUDENT,
+            role: payload.role,
             needPasswordChange: true,
         },
     });
 
     try {
         return await prisma.$transaction(async (tx) => {
-            await tx.student.create({
+            return tx.admin.create({
                 data: {
                     userId: authUser.id,
-                    ...payload.student,
+                    ...payload.admin,
                 },
-            });
-
-            return tx.student.findUniqueOrThrow({
-                where: { userId: authUser.id },
-                select: studentPublicSelect,
+                include: {
+                    user: { select: userPublicSelect },
+                },
             });
         });
     } catch (error) {
@@ -97,12 +99,12 @@ const createStudent = async (payload: ICreateStudentPayload) => {
     }
 };
 
-// ─── CR Application ──────────────────────────────────────────────────────────
+// ─── CR Application ───────────────────────────────────────────────────────────
 
 /**
- * A regular STUDENT submits an application to become CR.
- * The studentId is taken from the authenticated session — callers
- * should pass `req.user.studentId` (resolved via the student record).
+ * A STUDENT submits an application to become CR.
+ * The studentId must be resolved from the authenticated session in the
+ * controller — it must never come from the request body.
  */
 const applyCRRole = async (payload: ICreateCRApplicationPayload) => {
     const student = await prisma.student.findUnique({
@@ -111,19 +113,18 @@ const applyCRRole = async (payload: ICreateCRApplicationPayload) => {
     });
 
     if (!student) {
-        throw new AppError(StatusCodes.NOT_FOUND, "Student not found");
+        throw new AppError(StatusCodes.NOT_FOUND, "Student profile not found");
     }
 
     if (student.user.role === Role.CR) {
-        throw new AppError(StatusCodes.CONFLICT, "Student is already a CR");
+        throw new AppError(StatusCodes.CONFLICT, "You are already a CR");
     }
 
-    // Prevent duplicate pending applications
-    const existingApplication = await prisma.cRApplication.findFirst({
+    const pendingApplication = await prisma.cRApplication.findFirst({
         where: { studentId: payload.studentId, status: "PENDING" },
     });
 
-    if (existingApplication) {
+    if (pendingApplication) {
         throw new AppError(
             StatusCodes.CONFLICT,
             "You already have a pending CR application",
@@ -141,12 +142,10 @@ const applyCRRole = async (payload: ICreateCRApplicationPayload) => {
 };
 
 /**
- * Admin approves a CR application: promotes the student's role to CR
- * and creates the CR record inside a transaction.
+ * Admin approves a CR application.
+ * Atomically promotes the student's role to CR and creates the CR record.
  */
-const approveCRApplication = async (
-    payload: IApproveCRApplicationPayload,
-) => {
+const approveCRApplication = async (payload: IApproveCRApplicationPayload) => {
     const application = await prisma.cRApplication.findUnique({
         where: { id: payload.applicationId },
         include: { student: { include: { user: true } } },
@@ -164,13 +163,11 @@ const approveCRApplication = async (
     }
 
     return prisma.$transaction(async (tx) => {
-        // Promote the user role to CR
         await tx.user.update({
             where: { id: application.student.userId },
             data: { role: Role.CR },
         });
 
-        // Mark the application approved
         await tx.cRApplication.update({
             where: { id: application.id },
             data: {
@@ -180,7 +177,6 @@ const approveCRApplication = async (
             },
         });
 
-        // Create the CR record (maps to your CR model)
         return tx.cR.create({
             data: {
                 userId: application.student.userId,
@@ -223,63 +219,9 @@ const rejectCRApplication = async (
     });
 };
 
-// ─── Admin ───────────────────────────────────────────────────────────────────
-
-/**
- * Creates an ADMIN or SUPER_ADMIN user.
- *
- * Role-elevation rules (enforced here, not only in middleware):
- *  - SUPER_ADMIN  → may create ADMIN or SUPER_ADMIN
- *  - ADMIN        → may only create ADMIN
- */
-const createAdmin = async (
-    payload: ICreateAdminPayload,
-    requestingUserRole: Role,
-) => {
-    // Guard: only SUPER_ADMIN may promote to SUPER_ADMIN
-    if (
-        payload.role === Role.SUPER_ADMIN &&
-        requestingUserRole !== Role.SUPER_ADMIN
-    ) {
-        throw new AppError(
-            StatusCodes.FORBIDDEN,
-            "Only a Super Admin can create another Super Admin",
-        );
-    }
-
-    await assertEmailNotTaken(payload.admin.email);
-
-    const { user: authUser } = await auth.api.signUpEmail({
-        body: {
-            ...payload.admin,
-            password: payload.password,
-            role: payload.role,
-            needPasswordChange: true,
-        },
-    });
-
-    try {
-        return await prisma.$transaction(async (tx) => {
-            return tx.admin.create({
-                data: {
-                    userId: authUser.id,
-                    ...payload.admin,
-                },
-                include: {
-                    user: { select: userPublicSelect },
-                },
-            });
-        });
-    } catch (error) {
-        await rollbackAuthUser(authUser.id);
-        throw error;
-    }
-};
-
-// ─── Exports ─────────────────────────────────────────────────────────────────
+// ─── Exports ──────────────────────────────────────────────────────────────────
 
 export const UserService = {
-    createStudent,
     createAdmin,
     applyCRRole,
     approveCRApplication,

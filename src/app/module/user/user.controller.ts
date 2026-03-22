@@ -2,31 +2,43 @@ import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { catchAsync } from "../../shared/catchAsync";
 import { sendResponse } from "../../shared/sendResponse";
+import { IRequestUser } from "../auth/auth.interface";
 import { UserService } from "./user.service";
 
-// ─── Student ─────────────────────────────────────────────────────────────────
+// ─── Admin ────────────────────────────────────────────────────────────────────
 
-const createStudent = catchAsync(async (req: Request, res: Response) => {
-    const result = await UserService.createStudent(req.body);
+/**
+ * POST /users/create-admin
+ * The requesting user's role is forwarded to the service so it can enforce
+ * the SUPER_ADMIN-only elevation rule server-side (defence in depth).
+ */
+const createAdmin = catchAsync(async (req: Request, res: Response) => {
+    const requestingUser = req.user as IRequestUser;
+
+    const result = await UserService.createAdmin(req.body, requestingUser.role);
 
     sendResponse(res, {
         statusCode: StatusCodes.CREATED,
         success: true,
-        message: "Student registered successfully",
+        message: "Admin registered successfully",
         data: result,
     });
 });
 
-// ─── CR ──────────────────────────────────────────────────────────────────────
+// ─── CR Application ───────────────────────────────────────────────────────────
 
 /**
  * POST /users/apply-cr
- * Authenticated STUDENT submits an application to become CR.
- * `req.user` is populated by checkAuth middleware.
+ * The studentId is resolved from the authenticated session — never from the body.
  */
 const applyCRRole = catchAsync(async (req: Request, res: Response) => {
-    // studentId is resolved from the authenticated user's linked student record
-    const studentId: string = (req as any).user.studentId;
+    const requestingUser = req.user as IRequestUser;
+
+    // The student record is looked up by userId inside the service
+    // so we resolve studentId here via a quick DB lookup, or you can
+    // store studentId directly on the JWT payload for efficiency.
+    // Here we assume req.user has been extended with studentId by checkAuth.
+    const studentId: string = (requestingUser as any).studentId;
 
     const result = await UserService.applyCRRole({
         studentId,
@@ -37,14 +49,13 @@ const applyCRRole = catchAsync(async (req: Request, res: Response) => {
     sendResponse(res, {
         statusCode: StatusCodes.CREATED,
         success: true,
-        message: "CR application submitted successfully. Pending admin review.",
+        message: "CR application submitted. Pending admin review.",
         data: result,
     });
 });
 
 /**
  * PATCH /users/cr-applications/:applicationId/approve
- * Admin approves a CR application.
  */
 const approveCRApplication = catchAsync(async (req: Request, res: Response) => {
     const result = await UserService.approveCRApplication({
@@ -62,7 +73,6 @@ const approveCRApplication = catchAsync(async (req: Request, res: Response) => {
 
 /**
  * PATCH /users/cr-applications/:applicationId/reject
- * Admin rejects a CR application.
  */
 const rejectCRApplication = catchAsync(async (req: Request, res: Response) => {
     const result = await UserService.rejectCRApplication(
@@ -78,28 +88,9 @@ const rejectCRApplication = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
-// ─── Admin ───────────────────────────────────────────────────────────────────
-
-/**
- * POST /users/create-admin
- * The requesting user's role is forwarded to the service to enforce
- * role-elevation rules (only SUPER_ADMIN can create SUPER_ADMIN).
- */
-const createAdmin = catchAsync(async (req: Request, res: Response) => {
-    const requestingUserRole = (req as any).user.role;
-
-    const result = await UserService.createAdmin(req.body, requestingUserRole);
-
-    sendResponse(res, {
-        statusCode: StatusCodes.CREATED,
-        success: true,
-        message: "Admin registered successfully",
-        data: result,
-    });
-});
+// ─── Exports ──────────────────────────────────────────────────────────────────
 
 export const UserController = {
-    createStudent,
     createAdmin,
     applyCRRole,
     approveCRApplication,
