@@ -3,64 +3,72 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verify Your Identity</title>
+  <title>Verify Your Access</title>
 </head>
+<body style="margin:0;padding:0;background-color:#f4f7f4;font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
 
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-
-<table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#f8fafc;padding:40px 20px;">
+<table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f4f7f4; padding: 40px 20px;">
   <tr>
     <td align="center">
       
-      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width:500px;background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.08);">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 480px; background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8e2;">
         
+        <!-- Header -->
         <tr>
-          <td align="center" style="padding:40px 40px 20px 40px;">
-            <div style="background:linear-gradient(135deg, #6366f1 0%, #4338ca 100%);width:60px;height:60px;border-radius:16px;display:inline-block;margin-bottom:20px;line-height:60px;color:#ffffff;font-size:30px;font-weight:bold;">
-              D
-            </div>
-            <h2 style="margin:0;color:#1e293b;font-size:24px;letter-spacing:-0.5px;">DocSchedule<span style="color:#6366f1;">BD</span></h2>
+          <td align="center" style="padding: 40px 40px 20px 40px;">
+            <h2 style="margin: 0; color: #1a2e1a; font-size: 24px; font-weight: 800;">
+              Aca<span style="color: #2e7d32;">dex</span>
+            </h2>
+            <p style="margin: 10px 0 0; color: #667a66; font-size: 15px;">Verify your classroom access</p>
           </td>
         </tr>
 
+        <!-- Greeting -->
         <tr>
-          <td align="center" style="padding:0 40px 30px 40px;">
-            <p style="margin:0;color:#64748b;font-size:16px;line-height:1.6;">
-              Hey <span style="color:#1e293b;font-weight:600;"><%= name %></span>, let's get you verified so you can start booking your appointments.
+          <td align="center" style="padding: 0 40px 20px 40px;">
+            <p style="margin: 0; color: #333; font-size: 16px;">
+              Hello <strong><%= name %></strong>, use the code below to join your class and start sharing notes.
             </p>
           </td>
         </tr>
 
+        <!-- OTP Box -->
         <tr>
-          <td align="center" style="padding:0 40px 40px 40px;">
-            <div style="background:#f1f5f9;border-radius:20px;padding:30px;border:1px solid #e2e8f0;">
-              <span style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:2px;font-size:12px;font-weight:700;color:#94a3b8;">Verification Code</span>
-              <div style="color:#1e293b;font-size:42px;font-weight:800;letter-spacing:8px;font-family:monospace;">
+          <td align="center" style="padding: 0 40px 30px 40px;">
+            <div style="background: #f9fdf9; border-radius: 16px; padding: 30px; border: 1px solid #d0e0d0;">
+              <span style="display:block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; font-size: 11px; font-weight: 700; color: #5c8a5c;">Access Code</span>
+              <div style="color: #1a2e1a; font-size: 42px; font-weight: 800; letter-spacing: 6px; font-family: monospace;">
                 <%= otp %>
               </div>
+              <p style="margin: 15px 0 0; font-size: 12px; color: #889988;">Expires in 15 minutes</p>
             </div>
           </td>
         </tr>
 
+        <!-- Simple Button -->
         <tr>
-          <td align="center" style="padding:0 40px 40px 40px;">
-            <p style="margin:0;color:#94a3b8;font-size:13px;line-height:1.5;">
-              This code expires in <span style="color:#6366f1;font-weight:600;">15 minutes</span>.<br>
-              Security tip: Never share this code with anyone.
-            </p>
+          <td align="center" style="padding: 0 40px 40px 40px;">
+            <a href="#" style="background: #2e7d32; padding: 14px 28px; border-radius: 12px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 15px; display: inline-block;">
+              Open Classroom
+            </a>
           </td>
         </tr>
 
+        <!-- Minimal Footer -->
         <tr>
-          <td align="center" style="background:#f8fafc;padding:20px;border-top:1px solid #f1f5f9;">
-            <p style="margin:0;color:#cbd5e1;font-size:12px;font-weight:500;">
-              &copy; <%= new Date().getFullYear() %> DocScheduleBD &bull; Built for better health
+          <td align="center" style="background: #f9fbf9; padding: 20px; border-top: 1px solid #eee;">
+            <p style="margin: 0; color: #99aa99; font-size: 11px;">
+              &copy; <%= new Date().getFullYear() %> Acadex &bull; Collaborative Learning
             </p>
           </td>
         </tr>
-
       </table>
-      </td>
+      
+      <p style="font-size: 11px; color: #abbbab; margin-top: 20px; text-align: center;">
+        If you didn't request this, you can safely ignore this email.
+      </p>
+
+    </td>
   </tr>
 </table>
 
