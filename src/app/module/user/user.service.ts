@@ -2,33 +2,19 @@
 // import status from "http-status";
 // import { Role, Specialty } from "../../../generated/prisma/client";
 import { StatusCodes } from "http-status-codes";
-import { Role, Specialty } from "../../../generated/prisma";
+import { Role } from "../../../generated/prisma";
 import AppError from "../../errorHelpers/AppError";
 import { auth } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
-import { ICreateAdminPayload, ICreateDoctorPayload } from "./user.interface";
 
-const createDoctor = async (payload: ICreateDoctorPayload) => {
+import { ICreateAdminPayload, ICreateStudentPayload } from "./user.interface";
 
-    const specialties: Specialty[] = [];
-
-    for (const specialtyId of payload.specialties) {
-        const specialty = await prisma.specialty.findUnique({
-            where: {
-                id: specialtyId
-            }
-        })
-        if (!specialty) {
-            // throw new Error(`Specialty with id ${specialtyId} not found`);
-            throw new AppError(StatusCodes.NOT_FOUND, `Specialty with id ${specialtyId} not found`);
-        }
-        specialties.push(specialty);
-    }
+const createStudent = async (payload: ICreateStudentPayload) => {
 
 
     const userExists = await prisma.user.findUnique({
         where: {
-            email: payload.doctor.email
+            email: payload.student.email
         }
     })
 
@@ -39,10 +25,10 @@ const createDoctor = async (payload: ICreateDoctorPayload) => {
 
     const userData = await auth.api.signUpEmail({
         body: {
-            email: payload.doctor.email,
+            email: payload.student.email,
             password: payload.password,
-            role: Role.DOCTOR,
-            name: payload.doctor.name,
+            role: Role.STUDENT,
+            name: payload.student.name,
             needPasswordChange: true,
         }
     })
@@ -50,27 +36,19 @@ const createDoctor = async (payload: ICreateDoctorPayload) => {
 
     try {
         const result = await prisma.$transaction(async (tx) => {
-            const doctorData = await tx.doctor.create({
+            const studentData = await tx.student.create({
                 data: {
                     userId: userData.user.id,
-                    ...payload.doctor,
+                    ...payload.student,
                 }
             })
 
-            const doctorSpecialtyData = specialties.map((specialty) => {
-                return {
-                    doctorId: doctorData.id,
-                    specialtyId: specialty.id,
-                }
-            })
+            
 
-            await tx.doctorSpecialty.createMany({
-                data: doctorSpecialtyData
-            })
 
-            const doctor = await tx.doctor.findUnique({
+            const student = await tx.student.findUnique({
                 where: {
-                    id: doctorData.id
+                    id: studentData.id
                 },
                 select: {
                     id: true,
@@ -80,13 +58,7 @@ const createDoctor = async (payload: ICreateDoctorPayload) => {
                     profilePhoto: true,
                     contactNumber: true,
                     address: true,
-                    registrationNumber: true,
-                    experience: true,
                     gender: true,
-                    appointmentFee: true,
-                    qualification: true,
-                    currentWorkingPlace: true,
-                    designation: true,
                     createdAt: true,
                     updatedAt: true,
                     user: {
@@ -104,20 +76,11 @@ const createDoctor = async (payload: ICreateDoctorPayload) => {
                             updatedAt: true,
                         }
                     },
-                    specialties: {
-                        select: {
-                            specialty: {
-                                select: {
-                                    title: true,
-                                    id: true
-                                }
-                            }
-                        }
-                    }
+                    
                 }
             })
 
-            return doctor;
+            return student;
 
         })
 
@@ -184,6 +147,6 @@ const createAdmin = async (payload: ICreateAdminPayload) => {
 }
 
 export const UserService = {
-    createDoctor,
+    createStudent,
     createAdmin,
 }

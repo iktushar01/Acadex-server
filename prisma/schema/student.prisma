@@ -5,6 +5,7 @@ model Student {
   profilePhoto  String?
   contactNumber String?
   address       String?
+  gender        Gender?
   isDeleted     Boolean   @default(false)
   deletedAt     DateTime?
   createdAt     DateTime  @default(now())
@@ -12,7 +13,7 @@ model Student {
   userId        String    @unique
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([email], map: "idx_appUser_email")
-  @@index([isDeleted], map: "idx_appUser_isDeleted")
+  @@index([email])
+  @@index([isDeleted])
   @@map("students")
 }

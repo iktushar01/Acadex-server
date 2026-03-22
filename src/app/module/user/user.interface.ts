@@ -1,19 +1,13 @@
 import { Gender } from "../../../generated/prisma";
-export interface ICreateDoctorPayload {
+export interface ICreateStudentPayload {
     password: string;
-    doctor: {
+    student: {
         name: string;
         email: string;
         profilePhoto?: string;
         contactNumber?: string;
         address?: string;
-        registrationNumber: string;
-        experience?: number;
         gender: Gender;
-        appointmentFee: number;
-        qualification: string;
-        currentWorkingPlace: string;
-        designation: string;
     }
     specialties: string[];
 }
@@ -25,5 +19,5 @@ export interface ICreateAdminPayload {
         profilePhoto?: string;
         contactNumber?: string;
     }
-    role: "ADMIN" | "SUPER_ADMIN";
+    role: "ADMIN";
 }

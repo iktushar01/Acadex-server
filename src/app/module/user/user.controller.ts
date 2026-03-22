@@ -4,16 +4,16 @@ import { sendResponse } from "../../shared/sendResponse";
 import { UserService } from "./user.service";
 import { StatusCodes } from "http-status-codes";
 
-const createDoctor = catchAsync(
+const createStudent = catchAsync(
     async (req: Request, res: Response) => {
         const payload = req.body;
 
-        const result = await UserService.createDoctor(payload);
+        const result = await UserService.createStudent(payload);
 
         sendResponse(res, {
             statusCode: StatusCodes.CREATED,
             success: true,
-            message: "Doctor registered successfully",
+            message: "Student registered successfully",
             data: result,
         })
     }
@@ -35,6 +35,6 @@ const createAdmin = catchAsync(
 )
 
 export const UserController = {
-    createDoctor,
+    createStudent,
     createAdmin,
 };
