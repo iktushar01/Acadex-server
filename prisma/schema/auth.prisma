@@ -19,6 +19,7 @@ model User {
   accounts            Account[]
   admin               Admin?
   student             Student?
+  cr                  CR?
   sessions            Session[]
 
   @@map("user")

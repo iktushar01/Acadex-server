@@ -2,6 +2,7 @@ enum Role {
   STUDENT
   CR
   ADMIN
+  SUPER_ADMIN
 }
 
 enum UserStatus {

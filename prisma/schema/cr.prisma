@@ -1,0 +1,37 @@
+enum CRApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model CRApplication {
+  id         String              @id @default(cuid())
+  studentId  String
+  semesterId String?
+  reason     String
+  status     CRApplicationStatus @default(PENDING)
+  adminNote  String?
+  resolvedAt DateTime?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@map("cr_applications")
+}
+
+model CR {
+  id         String  @id @default(cuid())
+  userId     String  @unique
+  studentId  String  @unique
+  semesterId String?
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("class_representatives")
+}
