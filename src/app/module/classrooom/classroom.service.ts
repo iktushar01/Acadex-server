@@ -62,10 +62,10 @@ const classroomSelect = {
   createdAt: true,
   updatedAt: true,
   creator: {
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, email: true, image: true },
   },
   resolver: {
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, email: true, image: true },
   },
 } as const;
 
@@ -212,7 +212,7 @@ const getClassroomById = async (classroomId: string) => {
         select: {
           role: true,
           createdAt: true,
-          user: { select: { id: true, name: true, email: true } },
+          user: { select: { id: true, name: true, email: true, image: true } },
         },
       },
       _count: { select: { memberships: true } },

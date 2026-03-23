@@ -34,10 +34,10 @@ const noteSelect = {
   createdAt: true,
   updatedAt: true,
   uploader: {
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, email: true, image: true },
   },
   approver: {
-    select: { id: true, name: true },
+    select: { id: true, name: true, email: true, image: true },
   },
   files: {
     select: {

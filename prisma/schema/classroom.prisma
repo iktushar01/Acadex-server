@@ -132,6 +132,7 @@ model Note {
   approver      User?       @relation("ApprovedBy", fields: [approvedBy], references: [id])
 
   files         NoteFile[]
+  favorites     Favorite[]
 
   @@index([classroomId])
   @@index([subjectId])
@@ -154,4 +155,17 @@ model NoteFile {
 
   @@index([noteId])
   @@map("note_files")
+}
+
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  noteId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, noteId])
 }
