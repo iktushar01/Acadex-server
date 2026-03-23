@@ -63,7 +63,6 @@ model Membership {
 
 
 
-
 model Subject {
   id            String      @id @default(uuid())
   name          String
@@ -75,12 +74,32 @@ model Subject {
   updatedAt     DateTime    @updatedAt
 
   // Relations
-  notes         Note[]
+  folders       Folder[]     // 🔥 NEW
+  notes         Note[]       // optional (notes without folder)
 
   @@index([classroomId])
   @@map("subjects")
 }
 
+
+model Folder {
+  id            String   @id @default(uuid())
+
+  name          String
+
+  subjectId     String
+  subject       Subject  @relation(fields: [subjectId], references: [id])
+
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  notes         Note[]
+
+  @@index([subjectId])
+  @@map("folders")
+}
 
 
 model Note {
@@ -88,13 +107,12 @@ model Note {
 
   title         String
   description   String?
-  fileUrl       String
-  type          String      // pdf | link | text
 
   status        NoteStatus  @default(PENDING)
 
   classroomId   String
   subjectId     String
+  folderId      String?     // 🔥 OPTIONAL
 
   uploadedBy    String
   approvedBy    String?
@@ -105,13 +123,32 @@ model Note {
   // Relations
   classroom     Classroom   @relation(fields: [classroomId], references: [id])
   subject       Subject     @relation(fields: [subjectId], references: [id])
+  folder        Folder?     @relation(fields: [folderId], references: [id])
 
   uploader      User        @relation("UserNotes", fields: [uploadedBy], references: [id])
   approver      User?       @relation("ApprovedBy", fields: [approvedBy], references: [id])
 
+  files         NoteFile[]
+
   @@index([classroomId])
   @@index([subjectId])
+  @@index([folderId])
   @@map("notes")
 }
 
+model NoteFile {
+  id        String   @id @default(uuid())
 
+  url       String   // Cloudinary URL
+  type      String   // pdf | image
+  fileName  String?  // 🔥 optional (nice UX)
+  fileSize  Int?     // 🔥 optional
+
+  noteId    String
+  note      Note     @relation(fields: [noteId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([noteId])
+  @@map("note_files")
+}
