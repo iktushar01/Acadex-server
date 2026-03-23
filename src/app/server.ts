@@ -1,12 +1,15 @@
 import app from "./app";
 import dotenv from "dotenv";
 import { envVars } from "../config/env";
+import { seedSuperAdmin } from "./utils/seed";
 
 dotenv.config();
 
 const bootstrap = async () => {
   try {
     const port = envVars.PORT || 5000;
+
+    await seedSuperAdmin();
 
     await app.listen(port);
     console.log(`✅ Server running on ${envVars.NODE_ENV} mode at http://localhost:${port}`);

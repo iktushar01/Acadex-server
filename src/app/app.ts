@@ -1,4 +1,4 @@
-import express, { NextFunction, Request, Response } from "express";
+import express, { Application, NextFunction, Request, Response } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { IndexRoute } from "./routes";
@@ -8,7 +8,8 @@ import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 import path from "node:path";
 import { envVars } from "../config/env";
-const app = express();
+
+const app: Application = express();
 
 app.set("view engine", "ejs");
 app.set("views",path.resolve(process.cwd(), `src/app/templates`) )

@@ -33,6 +33,8 @@ interface EnvConfig {
     CLOUDINARY_API_KEY: string;
     CLOUDINARY_API_SECRET: string;
     IMGBB_API_KEY: string;
+    SUPER_ADMIN_EMAIL: string;
+    SUPER_ADMIN_PASSWORD: string;
 }
 
 const requiredEnvVariables = [
@@ -62,6 +64,8 @@ const requiredEnvVariables = [
     "CLOUDINARY_API_KEY",
     "CLOUDINARY_API_SECRET",
     "IMGBB_API_KEY",
+    "SUPER_ADMIN_EMAIL",
+    "SUPER_ADMIN_PASSWORD",
 ];
 
 
@@ -99,6 +103,8 @@ const loadEnvVariables = (): EnvConfig => {
         CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY as string,
         CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET as string,
         IMGBB_API_KEY: process.env.IMGBB_API_KEY as string,
+        SUPER_ADMIN_EMAIL: process.env.SUPER_ADMIN_EMAIL as string,
+        SUPER_ADMIN_PASSWORD: process.env.SUPER_ADMIN_PASSWORD as string,
     }
 }
 
