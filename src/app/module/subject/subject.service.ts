@@ -8,6 +8,7 @@ import {
   IGetSubjectsPayload,
   IUpdateSubjectPayload,
 } from "./subject.interface";
+import { uploadToImgbb } from "../../utils/uploadImg";
 
 // ─── Shared select ────────────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ import {
 const subjectSelect = {
   id: true,
   name: true,
+  coverImage: true,
   classroomId: true,
   createdAt: true,
   updatedAt: true,
@@ -126,7 +128,7 @@ const assertNoDuplicateName = async (
  *   - Subject name must be unique within the classroom (case-insensitive)
  */
 const createSubject = async (payload: ICreateSubjectPayload) => {
-  const { userId, name, classroomId } = payload;
+  const { userId, name, classroomId, coverImageBase64, coverImage: providedUrl } = payload;
 
   // 1. Verify caller is CR of this classroom
   await assertClassroomAccess(userId, classroomId, [MembershipRole.CR]);
@@ -134,9 +136,15 @@ const createSubject = async (payload: ICreateSubjectPayload) => {
   // 2. Prevent duplicate names
   await assertNoDuplicateName(name, classroomId);
 
-  // 3. Create
+  // 3. Upload cover image if base64 provided, else use provided URL
+  let coverImage: string | undefined = providedUrl;
+  if (coverImageBase64) {
+    coverImage = await uploadToImgbb(coverImageBase64);
+  }
+
+  // 4. Create subject
   return prisma.subject.create({
-    data: { name, classroomId },
+    data: { name, classroomId, coverImage },
     select: subjectSelect,
   });
 };
@@ -178,9 +186,9 @@ const getSubjectsByClassroom = async (payload: IGetSubjectsPayload) => {
  * not need to supply it, which prevents spoofing.
  */
 const updateSubject = async (payload: IUpdateSubjectPayload) => {
-  const { userId, subjectId, name } = payload;
+  const { userId, subjectId, name, coverImageBase64 } = payload;
 
-  // Resolve classroomId from the subject — never trust the client for this
+  // Resolve classroomId from the subject
   const subject = await prisma.subject.findUnique({
     where: { id: subjectId },
     select: { id: true, classroomId: true, name: true },
@@ -190,15 +198,26 @@ const updateSubject = async (payload: IUpdateSubjectPayload) => {
     throw new AppError(StatusCodes.NOT_FOUND, "Subject not found");
   }
 
-  // Verify caller is CR of this subject's classroom
+  // Verify caller is CR
   await assertClassroomAccess(userId, subject.classroomId, [MembershipRole.CR]);
 
-  // Prevent duplicate names, excluding the current subject from the check
-  await assertNoDuplicateName(name, subject.classroomId, subjectId);
+  // Prevent duplicate names
+  if (name) {
+    await assertNoDuplicateName(name, subject.classroomId, subjectId);
+  }
+
+  // Handle new cover image: prioritize base64 if provided, else use provided URL
+  let coverImage: string | undefined = payload.coverImage;
+  if (coverImageBase64) {
+    coverImage = await uploadToImgbb(coverImageBase64);
+  }
 
   return prisma.subject.update({
     where: { id: subjectId },
-    data: { name },
+    data: { 
+      name,
+      coverImage
+    },
     select: subjectSelect,
   });
 };

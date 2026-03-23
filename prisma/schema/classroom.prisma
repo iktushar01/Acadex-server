@@ -67,6 +67,8 @@ model Subject {
   id            String      @id @default(uuid())
   name          String
 
+  coverImage    String?
+
   classroomId   String
   classroom     Classroom   @relation(fields: [classroomId], references: [id])
 
@@ -86,6 +88,7 @@ model Folder {
   id            String   @id @default(uuid())
 
   name          String
+  coverImage    String?
 
   subjectId     String
   subject       Subject  @relation(fields: [subjectId], references: [id])

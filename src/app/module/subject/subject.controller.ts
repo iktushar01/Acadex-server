@@ -18,6 +18,8 @@ const createSubject = catchAsync(async (req: Request, res: Response) => {
     userId: user.userId,
     name: req.body.name,
     classroomId: req.body.classroomId,
+    coverImage: req.body.coverImage,
+    coverImageBase64: req.body.coverImageBase64,
   });
 
   sendResponse(res, {
@@ -62,6 +64,8 @@ const updateSubject = catchAsync(async (req: Request, res: Response) => {
     userId: user.userId,
     subjectId: req.params.id as string,
     name: req.body.name,
+    coverImage: req.body.coverImage,
+    coverImageBase64: req.body.coverImageBase64,
   });
 
   sendResponse(res, {

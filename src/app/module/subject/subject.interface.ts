@@ -5,6 +5,8 @@ export interface ICreateSubjectPayload {
   userId: string;
   name: string;
   classroomId: string;
+  coverImage?: string;
+  coverImageBase64?: string;
 }
 
 // ─── Update ───────────────────────────────────────────────────────────────────
@@ -14,7 +16,9 @@ export interface IUpdateSubjectPayload {
   userId: string;
   /** Route param */
   subjectId: string;
-  name: string;
+  name?: string;
+  coverImage?: string;
+  coverImageBase64?: string;
 }
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
