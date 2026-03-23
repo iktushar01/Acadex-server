@@ -4,9 +4,7 @@ import { checkAuth } from "../../middleware/checkAuth";
 import { validateRequest } from "../../middleware/validateRequest";
 import { UserController } from "./user.controller";
 import {
-    approveCRApplicationZodSchema,
     createAdminZodSchema,
-    createCRApplicationZodSchema,
 } from "./user.validation";
 
 const router = Router();
@@ -23,38 +21,6 @@ router.post(
     checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
     validateRequest(createAdminZodSchema),
     UserController.createAdmin,
-);
-
-// ─── CR application flow ──────────────────────────────────────────────────────
-
-/**
- * POST /users/apply-cr
- * Any verified STUDENT (or existing CR applying for a different semester) may apply.
- */
-router.post(
-    "/apply-cr",
-    checkAuth(Role.STUDENT, Role.CR),
-    validateRequest(createCRApplicationZodSchema),
-    UserController.applyCRRole,
-);
-
-/**
- * PATCH /users/cr-applications/:applicationId/approve
- */
-router.patch(
-    "/cr-applications/:applicationId/approve",
-    checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
-    validateRequest(approveCRApplicationZodSchema),
-    UserController.approveCRApplication,
-);
-
-/**
- * PATCH /users/cr-applications/:applicationId/reject
- */
-router.patch(
-    "/cr-applications/:applicationId/reject",
-    checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
-    UserController.rejectCRApplication,
 );
 
 export const UserRoutes = router;

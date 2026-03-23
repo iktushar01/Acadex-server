@@ -10,7 +10,8 @@ import {
     forgetPasswordZodSchema,
     resetPasswordZodSchema,
     changePasswordZodSchema,
- } from "./Auth.validation";
+ } from "./auth.validation";
+
 
 
 const router = Router();
@@ -57,7 +58,7 @@ router.get("/oauth/error", AuthController.handleOAuthError);
 
 // ─── Authenticated routes (all roles) ────────────────────────────────────────
 
-const allRoles = [Role.STUDENT, Role.CR, Role.ADMIN, Role.SUPER_ADMIN] as const;
+const allRoles = [Role.STUDENT, Role.ADMIN, Role.SUPER_ADMIN] as const;
 
 router.get("/me", checkAuth(...allRoles), AuthController.getMe);
 

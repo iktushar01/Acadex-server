@@ -57,13 +57,6 @@ export const createCRApplicationZodSchema = z.object({
         .max(500, "Reason must be at most 500 characters"),
 });
 
-export const approveCRApplicationZodSchema = z.object({
-    applicationId: z.string().cuid("Invalid application ID"),
-    adminNote: z.string().max(300, "Note must be at most 300 characters").optional(),
-});
-
 // ─── Inferred types ───────────────────────────────────────────────────────────
 
 export type CreateAdminInput = z.infer<typeof createAdminZodSchema>;
-export type CreateCRApplicationInput = z.infer<typeof createCRApplicationZodSchema>;
-export type ApproveCRApplicationInput = z.infer<typeof approveCRApplicationZodSchema>;

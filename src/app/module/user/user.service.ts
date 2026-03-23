@@ -4,9 +4,7 @@ import { auth } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
 import { StatusCodes } from "http-status-codes";
 import {
-    IApproveCRApplicationPayload,
     ICreateAdminPayload,
-    ICreateCRApplicationPayload,
 } from "./user.interface";
 
 // ─── Shared select shapes ─────────────────────────────────────────────────────
@@ -99,131 +97,9 @@ const createAdmin = async (
     }
 };
 
-// ─── CR Application ───────────────────────────────────────────────────────────
-
-/**
- * A STUDENT submits an application to become CR.
- * The studentId must be resolved from the authenticated session in the
- * controller — it must never come from the request body.
- */
-const applyCRRole = async (payload: ICreateCRApplicationPayload) => {
-    const student = await prisma.student.findUnique({
-        where: { id: payload.studentId },
-        include: { user: { select: { role: true } } },
-    });
-
-    if (!student) {
-        throw new AppError(StatusCodes.NOT_FOUND, "Student profile not found");
-    }
-
-    if (student.user.role === Role.CR) {
-        throw new AppError(StatusCodes.CONFLICT, "You are already a CR");
-    }
-
-    const pendingApplication = await prisma.cRApplication.findFirst({
-        where: { studentId: payload.studentId, status: "PENDING" },
-    });
-
-    if (pendingApplication) {
-        throw new AppError(
-            StatusCodes.CONFLICT,
-            "You already have a pending CR application",
-        );
-    }
-
-    return prisma.cRApplication.create({
-        data: {
-            studentId: payload.studentId,
-            semesterId: payload.semesterId ?? null,
-            reason: payload.reason,
-            status: "PENDING",
-        },
-    });
-};
-
-/**
- * Admin approves a CR application.
- * Atomically promotes the student's role to CR and creates the CR record.
- */
-const approveCRApplication = async (payload: IApproveCRApplicationPayload) => {
-    const application = await prisma.cRApplication.findUnique({
-        where: { id: payload.applicationId },
-        include: { student: { include: { user: true } } },
-    });
-
-    if (!application) {
-        throw new AppError(StatusCodes.NOT_FOUND, "CR application not found");
-    }
-
-    if (application.status !== "PENDING") {
-        throw new AppError(
-            StatusCodes.BAD_REQUEST,
-            `Application is already ${application.status.toLowerCase()}`,
-        );
-    }
-
-    return prisma.$transaction(async (tx) => {
-        await tx.user.update({
-            where: { id: application.student.userId },
-            data: { role: Role.CR },
-        });
-
-        await tx.cRApplication.update({
-            where: { id: application.id },
-            data: {
-                status: "APPROVED",
-                adminNote: payload.adminNote ?? null,
-                resolvedAt: new Date(),
-            },
-        });
-
-        return tx.cR.create({
-            data: {
-                userId: application.student.userId,
-                studentId: application.studentId,
-                semesterId: application.semesterId ?? undefined,
-            },
-        });
-    });
-};
-
-/**
- * Admin rejects a CR application.
- */
-const rejectCRApplication = async (
-    applicationId: string,
-    adminNote?: string,
-) => {
-    const application = await prisma.cRApplication.findUnique({
-        where: { id: applicationId },
-    });
-
-    if (!application) {
-        throw new AppError(StatusCodes.NOT_FOUND, "CR application not found");
-    }
-
-    if (application.status !== "PENDING") {
-        throw new AppError(
-            StatusCodes.BAD_REQUEST,
-            `Application is already ${application.status.toLowerCase()}`,
-        );
-    }
-
-    return prisma.cRApplication.update({
-        where: { id: applicationId },
-        data: {
-            status: "REJECTED",
-            adminNote: adminNote ?? null,
-            resolvedAt: new Date(),
-        },
-    });
-};
 
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
 export const UserService = {
-    createAdmin,
-    applyCRRole,
-    approveCRApplication,
-    rejectCRApplication,
+    createAdmin
 };

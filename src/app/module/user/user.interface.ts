@@ -24,21 +24,6 @@ export interface ICreateAdminPayload {
     role: Extract<Role, "ADMIN" | "SUPER_ADMIN">;
 }
 
-// ─── CR Application ───────────────────────────────────────────────────────────
-
-export interface ICreateCRApplicationPayload {
-    /** Resolved from the authenticated session — never taken from request body. */
-    studentId: string;
-    /** Which semester/class the student wants to represent (optional). */
-    semesterId?: string;
-    /** The student's written reason for applying. */
-    reason: string;
-}
-
-export interface IApproveCRApplicationPayload {
-    applicationId: string;
-    adminNote?: string;
-}
 
 // ─── Shared ───────────────────────────────────────────────────────────────────
 
