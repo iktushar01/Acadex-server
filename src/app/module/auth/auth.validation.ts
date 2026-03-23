@@ -23,6 +23,8 @@ export const registerStudentZodSchema = z.object({
         .string({ message: "Password is required" })
         .min(6, "Password must be at least 6 characters")
         .max(20, "Password must be at most 20 characters"),
+
+    image: z.string().optional(),
 });
 []
 export const loginZodSchema = z.object({

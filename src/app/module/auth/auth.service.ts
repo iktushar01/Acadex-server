@@ -12,6 +12,7 @@ import {
     IRegisterStudent,
     IRequestUser,
 } from "./auth.interface";
+import { uploadToImgbb } from "../../utils/uploadImg";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -46,7 +47,7 @@ const buildTokenPair = (user: {
 // ─── Register ─────────────────────────────────────────────────────────────────
 
 const registerStudent = async (payload: IRegisterStudent) => {
-    const { name, email, password } = payload;
+    const { name, email, password, image } = payload;
 
     // Check for duplicate before hitting better-auth so we control the error shape
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -54,9 +55,14 @@ const registerStudent = async (payload: IRegisterStudent) => {
         throw new AppError(StatusCodes.CONFLICT, "A user with this email already exists");
     }
 
+    let imageUrl = null;
+    if (image) {
+        imageUrl = await uploadToImgbb(image);
+    }
+
     // Create the auth user first
     const authData = await auth.api.signUpEmail({
-        body: { name, email, password },
+        body: { name, email, password, image: imageUrl ?? undefined },
     });
 
     if (!authData?.user) {
@@ -74,6 +80,7 @@ const registerStudent = async (payload: IRegisterStudent) => {
                     userId: authData.user.id,
                     name,
                     email,
+                    profilePhoto: imageUrl,
                 },
             });
         });
@@ -344,6 +351,7 @@ const googleLoginSuccess = async (session: {
         status: string;
         isDeleted?: boolean | null;
         emailVerified: boolean;
+        image?: string | null;
     };
 }) => {
     const { user } = session;
@@ -359,6 +367,7 @@ const googleLoginSuccess = async (session: {
                 userId: user.id,
                 name: user.name,
                 email: user.email,
+                profilePhoto: user.image,
             },
         });
     }
