@@ -133,6 +133,7 @@ model Note {
 
   files         NoteFile[]
   favorites     Favorite[]
+  comments      Comment[]
 
   @@index([classroomId])
   @@index([subjectId])
@@ -169,3 +170,61 @@ model Favorite {
 
   @@unique([userId, noteId])
 }
+
+
+
+
+model Comment {
+  id        String   @id @default(uuid())
+
+  content   String
+
+  // Which note this comment belongs to
+  noteId    String
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  // Author
+  userId    String
+  user      User     @relation("UserComments", fields: [userId], references: [id], onDelete: Cascade)
+
+  // ── Reply system ────────────────────────────────────────────────────────
+  // Self-relation: top-level comments have parentId = null
+  // Replies point to a top-level comment — only ONE level deep (Facebook style)
+  // A reply cannot itself be replied to (enforced in service layer)
+  parentId  String?
+  parent    Comment?   @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[]  @relation("CommentReplies")
+
+  // ── Like system ─────────────────────────────────────────────────────────
+  likes     CommentLike[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([noteId])
+  @@index([userId])
+  @@index([parentId])
+  @@map("comments")
+}
+
+
+
+
+
+model CommentLike {
+  id        String   @id @default(uuid())
+
+  userId    String
+  commentId String
+
+  user      User     @relation("UserCommentLikes", fields: [userId], references: [id], onDelete: Cascade)
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  // One like per user per comment
+  @@unique([userId, commentId])
+  @@index([commentId])
+  @@map("comment_likes")
+}
+

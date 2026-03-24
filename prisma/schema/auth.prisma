@@ -27,6 +27,8 @@ model User {
   approvedNotes       Note[]      @relation("ApprovedBy")
   sessions            Session[]
   favorites           Favorite[]
+  comments            Comment[] @relation("UserComments")
+  commentLikes        CommentLike[] @relation("UserCommentLikes")
   @@map("user")
 }
 
