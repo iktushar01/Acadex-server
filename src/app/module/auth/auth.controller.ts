@@ -59,6 +59,9 @@ const registerStudent = catchAsync(async (req: Request, res: Response) => {
         data: {
             user: result.user,
             student: result.student,
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
+            token: result.token,
         },
     });
 });
@@ -78,7 +81,12 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
         statusCode: StatusCodes.OK,
         success: true,
         message: "Logged in successfully",
-        data: { user: result.user },
+        data: { 
+            user: result.user, 
+            accessToken: result.accessToken, 
+            refreshToken: result.refreshToken, 
+            token: result.token 
+        },
     });
 });
 
