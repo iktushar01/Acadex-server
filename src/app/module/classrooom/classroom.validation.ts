@@ -16,31 +16,44 @@ export const createClassroomZodSchema = z.object({
     .max(150, "Institution name must be at most 150 characters")
     .trim(),
 
-  level: z.enum(
-    [InstitutionLevel.SCHOOL, InstitutionLevel.COLLEGE, InstitutionLevel.UNIVERSITY],
-    { message: "Level must be SCHOOL, COLLEGE, or UNIVERSITY" },
+  level: z.preprocess(
+    (v) => (typeof v === "string" ? v.trim() : v),
+    z.enum(
+      [InstitutionLevel.SCHOOL, InstitutionLevel.COLLEGE, InstitutionLevel.UNIVERSITY],
+      { message: "Level must be SCHOOL, COLLEGE, or UNIVERSITY" },
+    ),
   ),
 
-  className: z
-    .string()
-    .min(1, "Class name must be at least 1 character")
-    .max(50, "Class name must be at most 50 characters")
-    .trim()
-    .optional(),
+  // Treat "" from the frontend as "not provided" for optional fields.
+  className: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z
+      .string()
+      .min(1, "Class name must be at least 1 character")
+      .max(50, "Class name must be at most 50 characters")
+      .trim()
+      .optional(),
+  ),
 
-  department: z
-    .string()
-    .min(1)
-    .max(100, "Department must be at most 100 characters")
-    .trim()
-    .optional(),
+  department: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z
+      .string()
+      .min(1)
+      .max(100, "Department must be at most 100 characters")
+      .trim()
+      .optional(),
+  ),
 
-  groupName: z
-    .string()
-    .min(1)
-    .max(50, "Group name must be at most 50 characters")
-    .trim()
-    .optional(),
+  groupName: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z
+      .string()
+      .min(1)
+      .max(50, "Group name must be at most 50 characters")
+      .trim()
+      .optional(),
+  ),
 
   description: z
     .string()
