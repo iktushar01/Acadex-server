@@ -3,49 +3,198 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Login</title>
+    <title>Acadex | Secure Redirect</title>
+    <style>
+        /* 1. DYNAMIC SYSTEM COLORS */
+        :root {
+            --primary: #2e7d32;
+            --background: #ffffff;
+            --card-bg: rgba(255, 255, 255, 0.8);
+            --text: #0f172a;
+            --muted: #64748b;
+            --border: #e2e8f0;
+            --grid: #e2e8f0;
+            --loader-track: #f1f5f9;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --background: #020617;
+                --card-bg: rgba(15, 23, 42, 0.8);
+                --text: #f8fafc;
+                --muted: #94a3b8;
+                --border: #1e293b;
+                --grid: #1e293b;
+                --loader-track: #0f172a;
+            }
+        }
+
+        /* 2. BASE STYLES */
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: var(--background);
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            color: var(--text);
+            transition: background-color 0.3s ease;
+        }
+
+        /* Notepad Grid Background */
+        .grid-bg {
+            position: fixed;
+            inset: 0;
+            opacity: 0.5;
+            pointer-events: none;
+            background-image: linear-gradient(var(--grid) 1px, transparent 1px);
+            background-size: 100% 2.5rem;
+            z-index: -1;
+        }
+
+        /* Modern Glass Card */
+        .container {
+            text-align: center;
+            padding: 3rem 2rem;
+            max-width: 420px;
+            width: 85%;
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 2.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo-box {
+            width: 72px;
+            height: 72px;
+            background: var(--primary);
+            border-radius: 1.25rem;
+            margin: 0 auto 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 20px -5px rgba(46, 125, 50, 0.4);
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin: 0 0 0.5rem;
+            letter-spacing: -0.04em;
+        }
+
+        p {
+            color: var(--muted);
+            font-size: 1rem;
+            margin-bottom: 2.5rem;
+            line-height: 1.5;
+        }
+
+        /* 3. SHIMMER LOADER */
+        .loader-track {
+            width: 100%;
+            height: 8px;
+            background: var(--loader-track);
+            border-radius: 100px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .loader-bar {
+            position: absolute;
+            height: 100%;
+            width: 50%;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            border-radius: 100px;
+            animation: shimmer 1.2s infinite ease-in-out;
+        }
+
+        @keyframes shimmer {
+            0% { left: -50%; }
+            100% { left: 100%; }
+        }
+
+        /* 4. ERROR STATE */
+        .error-title { color: #ef4444; }
+        .btn-retry {
+            margin-top: 1.5rem;
+            display: inline-block;
+            padding: 0.875rem 2rem;
+            background: var(--primary);
+            color: white;
+            text-decoration: none;
+            border-radius: 1rem;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: transform 0.2s ease;
+        }
+        .btn-retry:active { transform: scale(0.95); }
+    </style>
 </head>
 <body>
-    <div>
-        <p>Redirecting To Google...</p>
+    <div class="grid-bg"></div>
+
+    <div id="content-area" class="container">
+        <div class="logo-box">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="white">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+        </div>
+        <h1>Connecting...</h1>
+        <p>Signing you into <b>Acadex</b> securely with Google</p>
+        
+        <div class="loader-track">
+            <div class="loader-bar"></div>
+        </div>
     </div>
-</body>
-<script>
-    (
-        async () => {
+
+    <script>
+        (async () => {
+            const container = document.getElementById('content-area');
+            
             try {
                 const response = await fetch("<%= betterAuthUrl %>/api/auth/sign-in/social", {
-                    method : "POST",
-                    headers : {
-                        "Content-Type" : "application/json"
-                    },
-                    credentials : "include",
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
                     body: JSON.stringify({
-                        provider : "google",
+                        provider: "google",
                         callbackURL: "<%= callbackURL %>"
                     })
-                })
+                });
 
                 const data = await response.json();
 
-                if(data.url){
-                    window.location.href = data.url
-                }else{
-                    document.body.innerHTML = `<div>
-                    <p>
-                        Error Occurred While Redirecting To Google. Please Try Again Later.
-                    </p>
-                    </div>`
+                if (data.url) {
+                    // Added a short delay for smooth transition feel
+                    setTimeout(() => {
+                        window.location.href = data.url;
+                    }, 1000);
+                } else {
+                    throw new Error("Missing redirect URL");
                 }
             } catch (error) {
-                document.body.innerHTML = `<div>
-                    <p>
-                        Error Occurred While Redirecting To Google. Please Try Again Later.
-                        ${error.message}
-                    </p>
-                    </div>`
+                container.innerHTML = `
+                    <div style="font-size: 3.5rem; margin-bottom: 1rem;">🛰️</div>
+                    <h1 class="error-title">Connection Lost</h1>
+                    <p>We couldn't reach Google's servers. Please check your internet connection.</p>
+                    <a href="/login" class="btn-retry">Try Again</a>
+                `;
             }
-        }
-    )()
-</script>
+        })();
+    </script>
+</body>
 </html>
