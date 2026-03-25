@@ -1,11 +1,17 @@
 import { Role, UserStatus } from "../../../generated/prisma";
 
+export interface IUploadedFile {
+  path: string;       // Cloudinary URL
+  originalname: string;
+  mimetype: string;
+  size: number;       // bytes
+}
 export interface IRegisterStudent {
     name: string;
     email: string;
     password: string;
-    image?: string;
 }
+
 
 export interface ILoginUser {
     email: string;

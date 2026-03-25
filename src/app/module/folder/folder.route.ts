@@ -2,6 +2,7 @@ import { Router } from "express";
 import { Role } from "../../../generated/prisma";
 import { checkAuth } from "../../middleware/checkAuth";
 import { validateRequest } from "../../middleware/validateRequest";
+import { memoryUpload } from "../../../config/multer.config";
 import { FolderController } from "./folder.controller";
 import {
   createFolderZodSchema,
@@ -29,11 +30,13 @@ const router = Router();
 /**
  * POST /folders
  * Body: { name, coverImage?, coverImageBase64?, subjectId }
+ * Optional file upload via multipart/form-data with field name 'coverImage'
  * Only the CR of the subject's classroom may call this.
  */
 router.post(
   "/",
   checkAuth(Role.STUDENT, Role.ADMIN, Role.SUPER_ADMIN),
+  memoryUpload.single("coverImage"),
   validateRequest(createFolderZodSchema),
   FolderController.createFolder,
 );
@@ -52,11 +55,13 @@ router.get(
 /**
  * PATCH /folders/:id
  * Body: { name?, coverImage?, coverImageBase64? } — at least one required
+ * Optional file upload via multipart/form-data with field name 'coverImage'
  * Only the CR of the folder's classroom may call this.
  */
 router.patch(
   "/:id",
   checkAuth(Role.STUDENT, Role.ADMIN, Role.SUPER_ADMIN),
+  memoryUpload.single("coverImage"),
   validateRequest(updateFolderZodSchema),
   FolderController.updateFolder,
 );

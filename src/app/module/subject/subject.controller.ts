@@ -10,16 +10,24 @@ import { SubjectService } from "./subject.service";
  * CR of the target classroom creates a new subject.
  * classroomId comes from the validated request body.
  * userId always comes from the JWT — never the body.
+ * Optional file upload via coverImage field or base64 in body.
  */
 const createSubject = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as IRequestUser;
+  const file = (req as any).file;
+
+  // Convert file buffer to base64 if file was uploaded
+  let coverImageBase64: string | undefined = req.body.coverImageBase64;
+  if (file && !coverImageBase64) {
+    coverImageBase64 = file.buffer.toString("base64");
+  }
 
   const result = await SubjectService.createSubject({
     userId: user.userId,
     name: req.body.name,
     classroomId: req.body.classroomId,
     coverImage: req.body.coverImage,
-    coverImageBase64: req.body.coverImageBase64,
+    coverImageBase64,
   });
 
   sendResponse(res, {
@@ -56,16 +64,24 @@ const getSubjectsByClassroom = catchAsync(async (req: Request, res: Response) =>
  * CR of the subject's classroom renames a subject.
  * classroomId is resolved inside the service from the subject record —
  * the client does not supply it.
+ * Optional file upload via coverImage field or base64 in body.
  */
 const updateSubject = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as IRequestUser;
+  const file = (req as any).file;
+
+  // Convert file buffer to base64 if file was uploaded
+  let coverImageBase64: string | undefined = req.body.coverImageBase64;
+  if (file && !coverImageBase64) {
+    coverImageBase64 = file.buffer.toString("base64");
+  }
 
   const result = await SubjectService.updateSubject({
     userId: user.userId,
     subjectId: req.params.id as string,
     name: req.body.name,
     coverImage: req.body.coverImage,
-    coverImageBase64: req.body.coverImageBase64,
+    coverImageBase64,
   });
 
   sendResponse(res, {

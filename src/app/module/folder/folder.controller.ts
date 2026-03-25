@@ -7,15 +7,23 @@ import { FolderService } from "./folder.service";
 
 /**
  * POST /folders
+ * Optional file upload via coverImage field or base64 in body.
  */
 const createFolder = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as IRequestUser;
+  const file = (req as any).file;
+
+  // Convert file buffer to base64 if file was uploaded
+  let coverImageBase64: string | undefined = req.body.coverImageBase64;
+  if (file && !coverImageBase64) {
+    coverImageBase64 = file.buffer.toString("base64");
+  }
 
   const result = await FolderService.createFolder({
     userId: user.userId,
     name: req.body.name,
     coverImage: req.body.coverImage,
-    coverImageBase64: req.body.coverImageBase64,
+    coverImageBase64,
     subjectId: req.body.subjectId,
   });
 
@@ -48,16 +56,24 @@ const getFoldersBySubject = catchAsync(async (req: Request, res: Response) => {
 
 /**
  * PATCH /folders/:id
+ * Optional file upload via coverImage field or base64 in body.
  */
 const updateFolder = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as IRequestUser;
+  const file = (req as any).file;
+
+  // Convert file buffer to base64 if file was uploaded
+  let coverImageBase64: string | undefined = req.body.coverImageBase64;
+  if (file && !coverImageBase64) {
+    coverImageBase64 = file.buffer.toString("base64");
+  }
 
   const result = await FolderService.updateFolder({
     userId: user.userId,
     folderId: req.params.id as string,
     name: req.body.name,
     coverImage: req.body.coverImage,
-    coverImageBase64: req.body.coverImageBase64,
+    coverImageBase64,
   });
 
   sendResponse(res, {

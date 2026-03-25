@@ -2,6 +2,7 @@ import { Router } from "express";
 import { Role } from "../../../generated/prisma";
 import { checkAuth } from "../../middleware/checkAuth";
 import { validateRequest } from "../../middleware/validateRequest";
+import { memoryUpload } from "../../../config/multer.config";
 import { AuthController } from "./auth.controller";
 import { 
     registerStudentZodSchema,
@@ -20,6 +21,7 @@ const router = Router();
 
 router.post(
     "/register",
+    memoryUpload.single("image"),
     validateRequest(registerStudentZodSchema),
     AuthController.registerStudent,
 );

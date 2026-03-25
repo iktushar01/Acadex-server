@@ -6,13 +6,13 @@ import { StatusCodes } from "http-status-codes";
 import { tokenUtils } from "../../utils/token";
 import { jwtUtils } from "../../utils/jwt";
 import { envVars } from "../../../config/env";
+import { uploadFileToCloudinary, deleteFileFromCloudinary } from "../../../config/cloudinary.config";
 import {
     IChangePassWordPayload,
     ILoginUser,
     IRegisterStudent,
     IRequestUser,
 } from "./auth.interface";
-import { uploadToImgbb } from "../../utils/uploadImg";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -46,36 +46,48 @@ const buildTokenPair = (user: {
 
 // ─── Register ─────────────────────────────────────────────────────────────────
 
-const registerStudent = async (payload: IRegisterStudent) => {
-    const { name, email, password, image } = payload;
+const registerStudent = async (payload: IRegisterStudent, fileBuffer?: Buffer, fileName?: string) => {
+    const { name, email, password } = payload;
 
-    // Check for duplicate before hitting better-auth so we control the error shape
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-        throw new AppError(StatusCodes.CONFLICT, "A user with this email already exists");
-    }
+    // 1. Prepare upload promise
+    const uploadPromise = fileBuffer && fileName
+        ? uploadFileToCloudinary(fileBuffer, fileName)
+            .then(res => res.secure_url)
+            .catch(() => {
+                throw new AppError(StatusCodes.BAD_REQUEST, "Failed to upload image. Please try again.");
+            })
+        : Promise.resolve(undefined);
 
-    let imageUrl = null;
-    if (image) {
-        imageUrl = await uploadToImgbb(image);
-    }
-
-    // Create the auth user first
-    const authData = await auth.api.signUpEmail({
-        body: { name, email, password, image: imageUrl ?? undefined },
+    // 2. Prepare auth user promise (without image initially to run them in parallel)
+    const signUpPromise = auth.api.signUpEmail({
+        body: { name, email, password },
     });
 
+    // Run Cloudinary Upload (I/O bound) and Bcrypt Hashing (CPU bound) concurrently to save 1-2 seconds
+    let imageUrl: string | undefined;
+    let authData;
+    
+    try {
+        [imageUrl, authData] = await Promise.all([uploadPromise, signUpPromise]);
+    } catch (error: any) {
+        // Map better-auth duplicate user error to a standard AppError
+        if (error?.message?.toLowerCase().includes("exist") || error?.status === 409) {
+            throw new AppError(StatusCodes.CONFLICT, "A user with this email already exists");
+        }
+        throw error;
+    }
+
     if (!authData?.user) {
+        if (imageUrl) {
+            await deleteFileFromCloudinary(imageUrl, "image").catch(() => {});
+        }
         throw new AppError(StatusCodes.BAD_REQUEST, "User registration failed");
     }
 
     try {
-        // Create the student profile inside a transaction.
-        // If this fails the catch block below rolls back the auth user.
-        // We do NOT put a try/catch inside the transaction callback — any throw
-        // there automatically rolls back the transaction already.
-        const student = await prisma.$transaction(async (tx) => {
-            return tx.student.create({
+        // Create the student profile and update the user's image URL in a single transaction
+        const [student] = await prisma.$transaction(async (tx) => {
+            const createdStudent = await tx.student.create({
                 data: {
                     userId: authData.user.id,
                     name,
@@ -83,6 +95,19 @@ const registerStudent = async (payload: IRegisterStudent) => {
                     profilePhoto: imageUrl,
                 },
             });
+
+            // Update user image if there was an upload
+            if (imageUrl) {
+                await tx.user.update({
+                    where: { id: authData.user.id },
+                    data: { image: imageUrl },
+                });
+                
+                // Also update the session user context object so we can use it properly below
+                authData.user.image = imageUrl;
+            }
+
+            return [createdStudent];
         });
 
         const { accessToken, refreshToken } = buildTokenPair({
@@ -103,11 +128,14 @@ const registerStudent = async (payload: IRegisterStudent) => {
             refreshToken,
         };
     } catch (error) {
-        // Roll back the auth user so the email is not permanently locked
+        // Rollback the auth user and delete the uploaded image if needed
         try {
+            if (imageUrl) {
+                await deleteFileFromCloudinary(imageUrl, "image");
+            }
             await prisma.user.delete({ where: { id: authData.user.id } });
         } catch (rollbackErr) {
-            console.error("Auth user rollback failed:", authData.user.id, rollbackErr);
+            console.error("Rollback failed for user:", authData.user.id, rollbackErr);
         }
         throw error;
     }

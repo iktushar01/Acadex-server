@@ -2,6 +2,7 @@ import { Router } from "express";
 import { Role } from "../../../generated/prisma";
 import { checkAuth } from "../../middleware/checkAuth";
 import { validateRequest } from "../../middleware/validateRequest";
+import { memoryUpload } from "../../../config/multer.config";
 import { SubjectController } from "./subject.controller";
 import {
   createSubjectZodSchema,
@@ -29,12 +30,14 @@ const router = Router();
 
 /**
  * POST /subjects
- * Body: { name, classroomId }
+ * Body: { name, classroomId, coverImage?, coverImageBase64? }
+ * Optional file upload via multipart/form-data with field name 'coverImage'
  * Only the CR of the target classroom may call this.
  */
 router.post(
   "/",
   checkAuth(Role.STUDENT, Role.ADMIN, Role.SUPER_ADMIN),
+  memoryUpload.single("coverImage"),
   validateRequest(createSubjectZodSchema),
   SubjectController.createSubject,
 );
@@ -52,13 +55,15 @@ router.get(
 
 /**
  * PATCH /subjects/:id
- * Body: { name }
+ * Body: { name?, coverImage?, coverImageBase64? }
+ * Optional file upload via multipart/form-data with field name 'coverImage'
  * Only the CR of the subject's classroom may call this.
  * classroomId is resolved from the subject record inside the service.
  */
 router.patch(
   "/:id",
   checkAuth(Role.STUDENT, Role.ADMIN, Role.SUPER_ADMIN),
+  memoryUpload.single("coverImage"),
   validateRequest(updateSubjectZodSchema),
   SubjectController.updateSubject,
 );

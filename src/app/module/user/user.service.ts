@@ -75,7 +75,7 @@ const createAdmin = async (
             ...payload.admin,
             password: payload.password,
             role: payload.role,
-            needPasswordChange: true,
+            needPasswordChange: false,
         },
     });
 

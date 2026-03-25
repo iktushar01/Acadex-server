@@ -42,7 +42,9 @@ const clearAuthCookies = (res: Response) => {
 // ─── Register ─────────────────────────────────────────────────────────────────
 
 const registerStudent = catchAsync(async (req: Request, res: Response) => {
-    const result = await AuthService.registerStudent(req.body);
+    const fileBuffer = (req as any).file?.buffer;
+    const fileName = (req as any).file?.originalname;
+    const result = await AuthService.registerStudent(req.body, fileBuffer, fileName);
 
     setAuthCookies(res, {
         accessToken: result.accessToken,

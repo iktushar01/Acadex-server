@@ -2,13 +2,13 @@ import { ClassroomStatus, MembershipRole } from "../../../generated/prisma";
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
 import { StatusCodes } from "http-status-codes";
+import { uploadToImgbb } from "../../utils/uploadImg";
 import {
   ICreateFolderPayload,
   IDeleteFolderPayload,
   IGetFoldersPayload,
   IUpdateFolderPayload,
 } from "./folder.interface";
-import { uploadToImgbb } from "../../utils/uploadImg";
 
 // ─── Shared select ────────────────────────────────────────────────────────────
 

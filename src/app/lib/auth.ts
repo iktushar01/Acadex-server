@@ -51,7 +51,7 @@ export const auth = betterAuth({
         additionalFields: {
             role: { type: "string", required: true, defaultValue: Role.STUDENT },
             status: { type: "string", required: true, defaultValue: UserStatus.ACTIVE },
-            needPasswordChange: { type: "boolean", required: true, defaultValue: true },
+            needPasswordChange: { type: "boolean", required: true, defaultValue: false },
             isDeleted: { type: "boolean", required: true, defaultValue: false },
             deletedAt: { type: "date", required: false, defaultValue: null },
             lastLogin: { type: "date", required: false, defaultValue: null },
