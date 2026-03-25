@@ -17,10 +17,12 @@ const getRefreshToken = (payload: JwtPayload) => {
 
 const getAccessTokenFromCookie = (res: Response, token: string) => {
     const maxAge = ms(envVars.ACCESS_TOKEN_EXPIRES_IN as StringValue);
+    const isProd = envVars.NODE_ENV === "production";
     cookieUtils.setCookie(res, 'accessToken', token, {
         httpOnly: true,
-        secure: true,
-        sameSite: 'none',
+        secure: isProd,
+        // `sameSite: "none"` requires `secure`, so relax it in dev.
+        sameSite: isProd ? 'none' : 'lax',
         path: '/',
         maxAge: maxAge
     });
@@ -28,10 +30,12 @@ const getAccessTokenFromCookie = (res: Response, token: string) => {
 
 const getRefreshTokenFromCookie = (res: Response, token: string) => {
     const maxAge = ms(envVars.REFRESH_TOKEN_EXPIRES_IN as StringValue);
+    const isProd = envVars.NODE_ENV === "production";
     cookieUtils.setCookie(res, 'refreshToken', token, {
         httpOnly: true,
-        secure: true,
-        sameSite: 'none',
+        secure: isProd,
+        // `sameSite: "none"` requires `secure`, so relax it in dev.
+        sameSite: isProd ? 'none' : 'lax',
         path: '/',
         maxAge: maxAge
     });
@@ -39,10 +43,12 @@ const getRefreshTokenFromCookie = (res: Response, token: string) => {
 
 const getBetterAuthAccessToken = (res: Response, token: string) => {
     const maxAge = ms(envVars.ACCESS_TOKEN_EXPIRES_IN as StringValue);
+    const isProd = envVars.NODE_ENV === "production";
     cookieUtils.setCookie(res, 'better-auth.session_token', token, {
         httpOnly: true,
-        secure: true,
-        sameSite: 'none',
+        secure: isProd,
+        // `sameSite: "none"` requires `secure`, so relax it in dev.
+        sameSite: isProd ? 'none' : 'lax',
         path: '/',
         maxAge: maxAge
     });
