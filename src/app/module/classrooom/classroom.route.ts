@@ -76,7 +76,7 @@ router.get(
 router.get(
   "/",
   checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
-  validateRequest(classroomFilterZodSchema),
+  validateRequest(classroomFilterZodSchema, "query"),
   ClassroomController.getClassrooms,
 );
 
