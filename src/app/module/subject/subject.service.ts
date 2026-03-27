@@ -259,12 +259,26 @@ const deleteSubject = async (payload: IDeleteSubjectPayload) => {
   // Verify caller is CR of this subject's classroom
   await assertClassroomAccess(userId, subject.classroomId, [MembershipRole.CR]);
 
-  // Delete notes first, then the subject — enforces referential integrity
-  // even if the schema does not have onDelete: Cascade set on Note.subjectId
-  await prisma.$transaction([
-    prisma.note.deleteMany({ where: { subjectId } }),
-    prisma.subject.delete({ where: { id: subjectId } }),
-  ]);
+  // Delete in strict FK order: note_files -> notes -> folders -> subject.
+  // These relations are not configured with DB-level cascading in schema.
+  await prisma.$transaction(async (tx) => {
+    const subjectNotes = await tx.note.findMany({
+      where: { subjectId },
+      select: { id: true },
+    });
+
+    const noteIds = subjectNotes.map((note) => note.id);
+
+    if (noteIds.length > 0) {
+      await tx.noteFile.deleteMany({
+        where: { noteId: { in: noteIds } },
+      });
+    }
+
+    await tx.note.deleteMany({ where: { subjectId } });
+    await tx.folder.deleteMany({ where: { subjectId } });
+    await tx.subject.delete({ where: { id: subjectId } });
+  });
 
   return {
     id: subject.id,
