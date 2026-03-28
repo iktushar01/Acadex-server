@@ -8,6 +8,7 @@ import {
     ICreateNotePayload,
     IApproveNotePayload,
     IDeleteNotePayload,
+    IGetNoteByIdPayload,
     IGetNotesPayload,
     IRejectNotePayload,
     IUploadedFile,
@@ -371,6 +372,63 @@ const getNotes = async (payload: IGetNotesPayload) => {
   return notesQuery.execute();
 };
 
+/**
+ * Returns a single note for the detail page.
+ *
+ * Visibility rules match the list page:
+ *   STUDENT -> APPROVED notes only
+ *   CR      -> all notes in their classroom
+ */
+const getNoteById = async (payload: IGetNoteByIdPayload) => {
+  const { userId, noteId } = payload;
+
+  const note = await prisma.note.findUnique({
+    where: { id: noteId },
+    select: {
+      ...noteSelect,
+      classroom: {
+        select: {
+          status: true,
+          memberships: {
+            where: { userId },
+            select: { role: true },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+
+  if (!note) {
+    throw new AppError(StatusCodes.NOT_FOUND, "Note not found");
+  }
+
+  if (note.classroom.status !== ClassroomStatus.APPROVED) {
+    throw new AppError(StatusCodes.FORBIDDEN, "This classroom is not yet active");
+  }
+
+  const membership = note.classroom.memberships[0];
+
+  if (!membership) {
+    throw new AppError(
+      StatusCodes.FORBIDDEN,
+      "You are not a member of this classroom",
+    );
+  }
+
+  const isCR = membership.role === MembershipRole.CR;
+
+  if (!isCR && note.status !== NoteStatus.APPROVED) {
+    throw new AppError(
+      StatusCodes.FORBIDDEN,
+      "You do not have permission to view this note",
+    );
+  }
+
+  const { classroom, ...noteData } = note;
+  return noteData;
+};
+
 // ─── Approve ──────────────────────────────────────────────────────────────────
 
 /**
@@ -504,6 +562,7 @@ const deleteNote = async (payload: IDeleteNotePayload) => {
 export const NoteService = {
   createNote,
   getNotes,
+  getNoteById,
   approveNote,
   rejectNote,
   deleteNote,

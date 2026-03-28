@@ -83,6 +83,26 @@ const getNotes = catchAsync(async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /notes/:id
+ * Returns a single note if the caller is allowed to view it.
+ */
+const getNoteById = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as IRequestUser;
+
+  const result = await NoteService.getNoteById({
+    userId: user.userId,
+    noteId: req.params.id as string,
+  });
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Note fetched successfully",
+    data: result,
+  });
+});
+
+/**
  * PATCH /notes/:id/approve
  * CR of the note's classroom approves a PENDING note.
  */
@@ -148,6 +168,7 @@ const deleteNote = catchAsync(async (req: Request, res: Response) => {
 export const NoteController = {
   createNote,
   getNotes,
+  getNoteById,
   approveNote,
   rejectNote,
   deleteNote,

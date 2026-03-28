@@ -37,6 +37,12 @@ export interface IGetNotesPayload {
   query: Record<string, any>;
 }
 
+export interface IGetNoteByIdPayload {
+  /** Resolved from JWT */
+  userId: string;
+  noteId: string;
+}
+
 // ─── Approve / Reject ─────────────────────────────────────────────────────────
 
 export interface IApproveNotePayload {

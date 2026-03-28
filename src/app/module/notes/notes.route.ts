@@ -66,6 +66,16 @@ router.patch(
 );
 
 /**
+ * GET /notes/:id
+ * Returns a single note for the detail page.
+ */
+router.get(
+  "/:id",
+  checkAuth(Role.STUDENT, Role.ADMIN, Role.SUPER_ADMIN),
+  NoteController.getNoteById,
+);
+
+/**
  * DELETE /notes/:id
  * Uploader OR CR — deletes note, NoteFiles, and Cloudinary assets.
  */
