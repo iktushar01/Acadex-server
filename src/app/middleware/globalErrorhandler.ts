@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextFunction, Request, Response } from "express";
+import multer from "multer";
 import { StatusCodes } from "http-status-codes";
 import z from "zod";
 import AppError from "../errorHelpers/AppError";
@@ -44,6 +45,13 @@ export const globalErrorhandler = (err: any, req: Request, res: Response, next: 
         errorSources = [...simplifiedError.errorSources]
         stack = err.stack;
 
+    } else if (err instanceof multer.MulterError) {
+        statusCode = StatusCodes.BAD_REQUEST;
+        message =
+            err.code === "LIMIT_FILE_SIZE"
+                ? "One or more files exceed the maximum size (10MB per file)"
+                : err.message;
+        errorSources = [{ path: "files", message }];
     } else if (err instanceof AppError) {
         statusCode = err.statusCode;
         message = err.message;

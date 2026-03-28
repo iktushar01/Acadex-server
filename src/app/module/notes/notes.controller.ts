@@ -17,7 +17,14 @@ import { uploadFileToCloudinary } from "../../../config/cloudinary.config";
  */
 const createNote = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as IRequestUser;
-  const files = req.files as Express.Multer.File[];
+  const files = req.files as Express.Multer.File[] | undefined;
+
+  if (!files?.length) {
+    return res.status(400).json({
+      success: false,
+      message: "At least one file is required under the field name 'files'",
+    });
+  }
 
   // 1. Upload each memory buffer to Cloudinary manually
   const uploadedFiles = await Promise.all(

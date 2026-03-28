@@ -53,6 +53,16 @@ router.get(
 );
 
 /**
+ * GET /folders/:id
+ * Must be registered after GET / so list requests are not captured as an id.
+ */
+router.get(
+  "/:id",
+  checkAuth(Role.STUDENT, Role.ADMIN, Role.SUPER_ADMIN),
+  FolderController.getFolderById,
+);
+
+/**
  * PATCH /folders/:id
  * Body: { name?, coverImage?, coverImageBase64? } — at least one required
  * Optional file upload via multipart/form-data with field name 'coverImage'

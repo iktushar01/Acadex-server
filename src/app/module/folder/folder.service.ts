@@ -6,6 +6,7 @@ import { uploadToImgbb } from "../../utils/uploadImg";
 import {
   ICreateFolderPayload,
   IDeleteFolderPayload,
+  IGetFolderByIdPayload,
   IGetFoldersPayload,
   IUpdateFolderPayload,
 } from "./folder.interface";
@@ -234,6 +235,32 @@ const getFoldersBySubject = async (payload: IGetFoldersPayload) => {
   });
 };
 
+/**
+ * Returns one folder by id if the caller is a member of the classroom (STUDENT or CR).
+ */
+const getFolderById = async (payload: IGetFolderByIdPayload) => {
+  const { userId, folderId } = payload;
+
+  const folder = await prisma.folder.findUnique({
+    where: { id: folderId },
+    select: { subjectId: true },
+  });
+
+  if (!folder) {
+    throw new AppError(StatusCodes.NOT_FOUND, "Folder not found");
+  }
+
+  await assertSubjectAccess(userId, folder.subjectId, [
+    MembershipRole.STUDENT,
+    MembershipRole.CR,
+  ]);
+
+  return prisma.folder.findUniqueOrThrow({
+    where: { id: folderId },
+    select: folderSelect,
+  });
+};
+
 // ─── Update ───────────────────────────────────────────────────────────────────
 
 const updateFolder = async (payload: IUpdateFolderPayload) => {
@@ -286,6 +313,7 @@ const deleteFolder = async (payload: IDeleteFolderPayload) => {
 export const FolderService = {
   createFolder,
   getFoldersBySubject,
+  getFolderById,
   updateFolder,
   deleteFolder,
 };

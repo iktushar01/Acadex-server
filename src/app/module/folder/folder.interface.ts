@@ -36,3 +36,9 @@ export interface IGetFoldersPayload {
   userId: string;
   subjectId: string;
 }
+
+/** Single-folder lookup (e.g. notes page URL has only folderId). */
+export interface IGetFolderByIdPayload {
+  userId: string;
+  folderId: string;
+}

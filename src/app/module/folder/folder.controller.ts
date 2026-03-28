@@ -55,6 +55,26 @@ const getFoldersBySubject = catchAsync(async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /folders/:id
+ * Any classroom member (STUDENT or CR) may read folder metadata.
+ */
+const getFolderById = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as IRequestUser;
+
+  const result = await FolderService.getFolderById({
+    userId: user.userId,
+    folderId: req.params.id as string,
+  });
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Folder fetched successfully",
+    data: result,
+  });
+});
+
+/**
  * PATCH /folders/:id
  * Optional file upload via coverImage field or base64 in body.
  */
@@ -106,6 +126,7 @@ const deleteFolder = catchAsync(async (req: Request, res: Response) => {
 export const FolderController = {
   createFolder,
   getFoldersBySubject,
+  getFolderById,
   updateFolder,
   deleteFolder,
 };

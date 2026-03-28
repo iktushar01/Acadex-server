@@ -27,10 +27,11 @@ export const createNoteZodSchema = z.object({
     .string({ message: "subjectId is required" })
     .min(1, "subjectId cannot be empty"),
 
-  folderId: z
-    .string()
-    .min(1, "folderId cannot be empty")
-    .optional(),
+  /** Multipart often sends "" or omits the field; treat empty as absent. */
+  folderId: z.preprocess(
+    (val) => (val === "" || val === null || val === undefined ? undefined : val),
+    z.string().min(1, "folderId cannot be empty").optional(),
+  ),
 });
 
 // ─── Inferred types ───────────────────────────────────────────────────────────
