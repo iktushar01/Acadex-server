@@ -149,6 +149,34 @@ const getClassroomById = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getClassroomMembers = catchAsync(async (req: Request, res: Response) => {
+  const result = await ClassroomService.getClassroomMembers(req.params.classroomId as string);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Classroom members fetched successfully",
+    data: result,
+  });
+});
+
+const updateClassroomMemberRole = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as IRequestUser;
+  const result = await ClassroomService.updateClassroomMemberRole({
+    classroomId: req.params.classroomId as string,
+    actingUserId: user.userId,
+    targetUserId: req.params.targetUserId as string,
+    role: req.body.role,
+  });
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Classroom member role updated successfully",
+    data: result,
+  });
+});
+
 // ─── Admin ────────────────────────────────────────────────────────────────────
 
 /**
@@ -221,6 +249,8 @@ export const ClassroomController = {
   getClassroomLeaderboardById,
   getMyClassroomRequests,
   getClassroomById,
+  getClassroomMembers,
+  updateClassroomMemberRole,
   getClassrooms,
   approveClassroom,
   rejectClassroom,

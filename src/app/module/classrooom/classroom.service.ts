@@ -8,6 +8,7 @@ import {
   ICreateClassroomPayload,
   ILeaveClassroomPayload,
   IRejectClassroomPayload,
+  IUpdateClassroomMemberRolePayload,
 } from "./classroom.interface";
 import { QueryBuilder } from "../../utils/QueryBuilder";
 import { generateJoinCode } from "../../utils/generateJoinCode";
@@ -431,6 +432,131 @@ const getClassroomById = async (classroomId: string) => {
   return classroom;
 };
 
+const getClassroomMembers = async (classroomId: string) => {
+  const classroom = await prisma.classroom.findUnique({
+    where: { id: classroomId },
+    select: {
+      ...classroomSelect,
+      memberships: {
+        orderBy: [
+          { role: "asc" },
+          { createdAt: "asc" },
+        ],
+        select: {
+          role: true,
+          createdAt: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+            },
+          },
+        },
+      },
+      _count: { select: { memberships: true } },
+    },
+  });
+
+  if (!classroom) {
+    throw new AppError(StatusCodes.NOT_FOUND, "Classroom not found");
+  }
+
+  return classroom;
+};
+
+const updateClassroomMemberRole = async (payload: IUpdateClassroomMemberRolePayload) => {
+  const { classroomId, actingUserId, targetUserId, role } = payload;
+
+  const [actingMembership, targetMembership] = await Promise.all([
+    prisma.membership.findUnique({
+      where: {
+        userId_classroomId: {
+          userId: actingUserId,
+          classroomId,
+        },
+      },
+      select: { role: true },
+    }),
+    prisma.membership.findUnique({
+      where: {
+        userId_classroomId: {
+          userId: targetUserId,
+          classroomId,
+        },
+      },
+      select: {
+        role: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  if (!actingMembership || actingMembership.role !== MembershipRole.CR) {
+    throw new AppError(StatusCodes.FORBIDDEN, "Only CR can manage classroom members");
+  }
+
+  if (!targetMembership) {
+    throw new AppError(StatusCodes.NOT_FOUND, "Target member not found in this classroom");
+  }
+
+  if (targetMembership.role === role) {
+    return {
+      role,
+      user: targetMembership.user,
+    };
+  }
+
+  if (targetMembership.role === MembershipRole.CR && role === MembershipRole.STUDENT) {
+    const crCount = await prisma.membership.count({
+      where: {
+        classroomId,
+        role: MembershipRole.CR,
+      },
+    });
+
+    if (crCount <= 1) {
+      throw new AppError(
+        StatusCodes.BAD_REQUEST,
+        "You cannot demote the last CR of this classroom",
+      );
+    }
+  }
+
+  const updatedMembership = await prisma.membership.update({
+    where: {
+      userId_classroomId: {
+        userId: targetUserId,
+        classroomId,
+      },
+    },
+    data: {
+      role,
+    },
+    select: {
+      role: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+        },
+      },
+    },
+  });
+
+  return updatedMembership;
+};
+
 // ─── Admin: Approve classroom ─────────────────────────────────────────────────
 
 /**
@@ -542,8 +668,15 @@ const joinClassroom = async (payload: {
   userId: string;
   joinCode: string;
 }) => {
-  const classroom = await prisma.classroom.findUnique({
-    where: { joinCode: payload.joinCode },
+  const normalizedJoinCode = payload.joinCode.trim().toUpperCase();
+
+  const classroom = await prisma.classroom.findFirst({
+    where: {
+      joinCode: {
+        equals: normalizedJoinCode,
+        mode: "insensitive",
+      },
+    },
     select: { id: true, status: true },
   });
 
@@ -646,6 +779,8 @@ export const ClassroomService = {
   getMyClassroomRequests,
   getClassrooms,
   getClassroomById,
+  getClassroomMembers,
+  updateClassroomMemberRole,
   approveClassroom,
   rejectClassroom,
   joinClassroom,

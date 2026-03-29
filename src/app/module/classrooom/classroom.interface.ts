@@ -33,6 +33,13 @@ export interface ILeaveClassroomPayload {
   userId: string;
 }
 
+export interface IUpdateClassroomMemberRolePayload {
+  classroomId: string;
+  actingUserId: string;
+  targetUserId: string;
+  role: MembershipRole;
+}
+
 // ─── Query filters ────────────────────────────────────────────────────────────
 
 export interface IClassroomFilterPayload {

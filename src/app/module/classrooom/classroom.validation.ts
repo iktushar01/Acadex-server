@@ -1,5 +1,5 @@
 import z from "zod";
-import { ClassroomStatus, InstitutionLevel } from "../../../generated/prisma";
+import { ClassroomStatus, InstitutionLevel, MembershipRole } from "../../../generated/prisma";
 
 // ─── Create Classroom ─────────────────────────────────────────────────────────
 
@@ -115,6 +115,12 @@ export const classroomFilterZodSchema = z.object({
     .min(1)
     .max(100, "Limit must be at most 100")
     .default(10),
+});
+
+export const updateClassroomMemberRoleZodSchema = z.object({
+  role: z.enum([MembershipRole.STUDENT, MembershipRole.CR], {
+    message: "Role must be STUDENT or CR",
+  }),
 });
 
 // ─── Inferred types ───────────────────────────────────────────────────────────

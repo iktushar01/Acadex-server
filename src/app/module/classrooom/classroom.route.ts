@@ -1,14 +1,15 @@
 import { Router } from "express";
-import { Role } from "../../../generated/prisma";
+import { MembershipRole, Role } from "../../../generated/prisma";
 import { checkAuth } from "../../middleware/checkAuth";
 import { validateRequest } from "../../middleware/validateRequest";
 import { ClassroomController } from "./classroom.controller";
-import { checkClassroomMember } from "./classroom.middleware";
+import { checkClassroomMember, checkClassroomRole } from "./classroom.middleware";
 import {
   classroomFilterZodSchema,
   createClassroomZodSchema,
   joinClassroomZodSchema,
   rejectClassroomZodSchema,
+  updateClassroomMemberRoleZodSchema,
 } from "./classroom.validation";
 
 const router = Router();
@@ -71,6 +72,21 @@ router.get(
   checkAuth(Role.STUDENT, Role.ADMIN, Role.SUPER_ADMIN),
   checkClassroomMember(),
   ClassroomController.getClassroomLeaderboardById,
+);
+
+router.get(
+  "/:classroomId/members",
+  checkAuth(Role.STUDENT, Role.ADMIN, Role.SUPER_ADMIN),
+  checkClassroomRole(MembershipRole.CR),
+  ClassroomController.getClassroomMembers,
+);
+
+router.patch(
+  "/:classroomId/members/:targetUserId/role",
+  checkAuth(Role.STUDENT, Role.ADMIN, Role.SUPER_ADMIN),
+  checkClassroomRole(MembershipRole.CR),
+  validateRequest(updateClassroomMemberRoleZodSchema),
+  ClassroomController.updateClassroomMemberRole,
 );
 
 /**
