@@ -12,10 +12,6 @@ export const checkAuth = (...authRoles: Role[]) => async (req: Request, res: Res
         //Session Token Verification
         const sessionToken = cookieUtils.getCookie(req, "better-auth.session_token");
 
-        if (!sessionToken) {
-            throw new AppError(StatusCodes.UNAUTHORIZED, 'Unauthorized access! No session token provided.');
-        }
-
         if (sessionToken) {
             const sessionExists = await prisma.session.findFirst({
                 where: {
@@ -65,14 +61,6 @@ export const checkAuth = (...authRoles: Role[]) => async (req: Request, res: Res
                     userId: user.id,
                 } as any;
             }
-
-            const accessToken = cookieUtils.getCookie(req, 'accessToken');
-
-            if (!accessToken) {
-                throw new AppError(StatusCodes.UNAUTHORIZED, 'Unauthorized access! No access token provided.');
-            }
-
-
         }
 
         //Access Token Verification

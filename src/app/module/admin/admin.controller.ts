@@ -7,7 +7,8 @@ import { IRequestUser } from "../auth/auth.interface";
 
 const getAllAdmins = catchAsync(
     async (req: Request, res: Response) => {
-        const result = await AdminService.getAllAdmins();
+        const user = req.user as IRequestUser;
+        const result = await AdminService.getAllAdmins(user);
 
         sendResponse(res, {
             statusCode: StatusCodes.OK,
@@ -21,8 +22,9 @@ const getAllAdmins = catchAsync(
 const getAdminById = catchAsync(
     async (req: Request, res: Response) => {
         const { id } = req.params;
+        const user = req.user as IRequestUser;
 
-        const admin = await AdminService.getAdminById(id as string);
+        const admin = await AdminService.getAdminById(id as string, user);
 
         sendResponse(res, {
             statusCode: StatusCodes.OK,
@@ -37,8 +39,9 @@ const updateAdmin = catchAsync(
     async (req: Request, res: Response) => {
         const { id } = req.params;
         const payload = req.body;
+        const user = req.user as IRequestUser;
 
-        const updatedAdmin = await AdminService.updateAdmin(id as string, payload);
+        const updatedAdmin = await AdminService.updateAdmin(id as string, payload, user);
 
         sendResponse(res, {
             statusCode: StatusCodes.OK,

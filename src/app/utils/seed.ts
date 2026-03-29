@@ -72,13 +72,17 @@ export const seedSuperAdmin = async () => {
     } catch (error) {
         console.error("Error seeding super admin: ", error);
         
-        // Use deleteMany to avoid "Record not found" error if the user was never created
-        if (envVars.SUPER_ADMIN_EMAIL) {
-            await prisma.user.deleteMany({
-                where: {
-                    email: envVars.SUPER_ADMIN_EMAIL.trim(),
-                }
-            });
+        try {
+            // Use deleteMany to avoid "Record not found" error if the user was never created
+            if (envVars.SUPER_ADMIN_EMAIL) {
+                await prisma.user.deleteMany({
+                    where: {
+                        email: envVars.SUPER_ADMIN_EMAIL.trim(),
+                    }
+                });
+            }
+        } catch (cleanupError) {
+            console.error("Failed to clean up super admin seed state:", cleanupError);
         }
     }
 }

@@ -13,12 +13,11 @@ const router = Router();
 
 /**
  * POST /users/create-admin
- * Both ADMIN and SUPER_ADMIN can reach this route.
- * The service layer enforces that only SUPER_ADMIN may assign SUPER_ADMIN.
+ * Only SUPER_ADMIN can provision admin accounts from the management UI.
  */
 router.post(
     "/create-admin",
-    checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
+    checkAuth(Role.SUPER_ADMIN),
     validateRequest(createAdminZodSchema),
     UserController.createAdmin,
 );

@@ -7,7 +7,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node dist/app/server.js",
+    "start": "node dist/src/app/server.js",
     "build": "tsc",
     "lint": "eslint ./src/**/*",
     "dev": "tsx watch src/app/server.ts"
