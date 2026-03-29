@@ -28,6 +28,11 @@ export interface IRejectClassroomPayload {
   rejectionReason: string;
 }
 
+export interface ILeaveClassroomPayload {
+  classroomId: string;
+  userId: string;
+}
+
 // ─── Query filters ────────────────────────────────────────────────────────────
 
 export interface IClassroomFilterPayload {

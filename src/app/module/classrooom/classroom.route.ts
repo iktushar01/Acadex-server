@@ -41,6 +41,12 @@ router.post(
   ClassroomController.joinClassroom,
 );
 
+router.delete(
+  "/:classroomId/leave",
+  checkAuth(Role.STUDENT, Role.SUPER_ADMIN),
+  ClassroomController.leaveClassroom,
+);
+
 /**
  * GET /classrooms/my-memberships
  * All classrooms the current user belongs to (with per-classroom role).

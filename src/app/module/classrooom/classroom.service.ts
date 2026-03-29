@@ -6,6 +6,7 @@ import { IQueryParams } from "../../interfaces/query.interface";
 import {
   IApproveClassroomPayload,
   ICreateClassroomPayload,
+  ILeaveClassroomPayload,
   IRejectClassroomPayload,
 } from "./classroom.interface";
 import { QueryBuilder } from "../../utils/QueryBuilder";
@@ -589,6 +590,52 @@ const joinClassroom = async (payload: {
   });
 };
 
+const leaveClassroom = async (payload: ILeaveClassroomPayload) => {
+  const membership = await prisma.membership.findUnique({
+    where: {
+      userId_classroomId: {
+        userId: payload.userId,
+        classroomId: payload.classroomId,
+      },
+    },
+    select: {
+      id: true,
+      role: true,
+      classroomId: true,
+      classroom: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  if (!membership) {
+    throw new AppError(StatusCodes.NOT_FOUND, "You are not a member of this classroom.");
+  }
+
+  if (membership.role === MembershipRole.CR) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      "Class representatives cannot leave their own classroom from here.",
+    );
+  }
+
+  await prisma.membership.delete({
+    where: {
+      userId_classroomId: {
+        userId: payload.userId,
+        classroomId: payload.classroomId,
+      },
+    },
+  });
+
+  return {
+    classroomId: membership.classroomId,
+    classroomName: membership.classroom.name,
+  };
+};
+
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
 export const ClassroomService = {
@@ -602,4 +649,5 @@ export const ClassroomService = {
   approveClassroom,
   rejectClassroom,
   joinClassroom,
+  leaveClassroom,
 };

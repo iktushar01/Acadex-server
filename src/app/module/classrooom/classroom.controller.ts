@@ -115,6 +115,22 @@ const joinClassroom = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const leaveClassroom = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as IRequestUser;
+
+  const result = await ClassroomService.leaveClassroom({
+    userId: user.userId,
+    classroomId: req.params.classroomId as string,
+  });
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Successfully left the classroom.",
+    data: result,
+  });
+});
+
 // ─── Shared ───────────────────────────────────────────────────────────────────
 
 /**
@@ -209,4 +225,5 @@ export const ClassroomController = {
   approveClassroom,
   rejectClassroom,
   joinClassroom,
+  leaveClassroom,
 };
