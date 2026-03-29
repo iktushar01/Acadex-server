@@ -1,5 +1,5 @@
 import { StatusCodes } from "http-status-codes";
-import { Role, UserStatus } from "../../../generated/prisma";
+import { ClassroomStatus, NoteStatus, Role, UserStatus } from "../../../generated/prisma";
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
 import { IRequestUser } from "../auth/auth.interface";
@@ -96,6 +96,102 @@ const getAllAdmins = async (requestingUser: IRequestUser) => {
     });
 
     return admins;
+};
+
+const getDashboardStats = async (requestingUser: IRequestUser) => {
+    if (
+        requestingUser.role !== Role.ADMIN &&
+        requestingUser.role !== Role.SUPER_ADMIN
+    ) {
+        throw new AppError(
+            StatusCodes.FORBIDDEN,
+            "Only Admin or Super Admin can access dashboard stats",
+        );
+    }
+
+    const roleScope: "ADMIN" | "SUPER_ADMIN" =
+        requestingUser.role === Role.SUPER_ADMIN ? "SUPER_ADMIN" : "ADMIN";
+
+    const [
+        totalAdmins,
+        totalSuperAdmins,
+        totalClassrooms,
+        pendingClassrooms,
+        approvedClassrooms,
+        rejectedClassrooms,
+        totalSubjects,
+        totalNotes,
+        approvedNotes,
+        pendingNotes,
+        rejectedNotes,
+        totalComments,
+        recentClassrooms,
+    ] = await Promise.all([
+        prisma.admin.count({
+            where: {
+                isDeleted: false,
+                user: { isDeleted: false, role: Role.ADMIN },
+            },
+        }),
+        prisma.admin.count({
+            where: {
+                isDeleted: false,
+                user: { isDeleted: false, role: Role.SUPER_ADMIN },
+            },
+        }),
+        prisma.classroom.count(),
+        prisma.classroom.count({ where: { status: ClassroomStatus.PENDING } }),
+        prisma.classroom.count({ where: { status: ClassroomStatus.APPROVED } }),
+        prisma.classroom.count({ where: { status: ClassroomStatus.REJECTED } }),
+        prisma.subject.count(),
+        prisma.note.count(),
+        prisma.note.count({ where: { status: NoteStatus.APPROVED } }),
+        prisma.note.count({ where: { status: NoteStatus.PENDING } }),
+        prisma.note.count({ where: { status: NoteStatus.REJECTED } }),
+        prisma.comment.count(),
+        prisma.classroom.findMany({
+            take: 5,
+            orderBy: { createdAt: "desc" },
+            select: {
+                id: true,
+                name: true,
+                institutionName: true,
+                status: true,
+                createdAt: true,
+                creator: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    },
+                },
+            },
+        }),
+    ]);
+
+    return {
+        roleScope,
+        adminSummary: {
+            totalAdmins,
+            totalSuperAdmins,
+            totalAdminAccounts: totalAdmins + totalSuperAdmins,
+        },
+        classroomSummary: {
+            total: totalClassrooms,
+            pending: pendingClassrooms,
+            approved: approvedClassrooms,
+            rejected: rejectedClassrooms,
+        },
+        contentSummary: {
+            subjects: totalSubjects,
+            notes: totalNotes,
+            approvedNotes,
+            pendingNotes,
+            rejectedNotes,
+            comments: totalComments,
+        },
+        recentClassrooms,
+    };
 };
 
 const getAdminById = async (id: string, requestingUser: IRequestUser) => {
@@ -196,6 +292,7 @@ const deleteAdmin = async (id: string, requestingUser: IRequestUser) => {
 };
 
 export const AdminService = {
+    getDashboardStats,
     getAllAdmins,
     getAdminById,
     updateAdmin,

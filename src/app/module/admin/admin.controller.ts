@@ -19,6 +19,20 @@ const getAllAdmins = catchAsync(
     }
 )
 
+const getDashboardStats = catchAsync(
+    async (req: Request, res: Response) => {
+        const user = req.user as IRequestUser;
+        const result = await AdminService.getDashboardStats(user);
+
+        sendResponse(res, {
+            statusCode: StatusCodes.OK,
+            success: true,
+            message: "Admin dashboard stats fetched successfully",
+            data: result,
+        })
+    }
+)
+
 const getAdminById = catchAsync(
     async (req: Request, res: Response) => {
         const { id } = req.params;
@@ -70,6 +84,7 @@ const deleteAdmin = catchAsync(
 )
 
 export const AdminController = {
+    getDashboardStats,
     getAllAdmins,
     updateAdmin,
     deleteAdmin,
