@@ -296,10 +296,23 @@ const deleteFolder = async (payload: IDeleteFolderPayload) => {
 
   const noteCount = await prisma.note.count({ where: { folderId } });
 
-  await prisma.$transaction([
-    prisma.note.deleteMany({ where: { folderId } }),
-    prisma.folder.delete({ where: { id: folderId } }),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    const folderNotes = await tx.note.findMany({
+      where: { folderId },
+      select: { id: true },
+    });
+
+    const noteIds = folderNotes.map((note) => note.id);
+
+    if (noteIds.length > 0) {
+      await tx.noteFile.deleteMany({
+        where: { noteId: { in: noteIds } },
+      });
+    }
+
+    await tx.note.deleteMany({ where: { folderId } });
+    await tx.folder.delete({ where: { id: folderId } });
+  });
 
   return {
     id: folder.id,

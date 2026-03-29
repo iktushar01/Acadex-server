@@ -10,7 +10,8 @@ import {
     verifyEmailZodSchema,
     forgetPasswordZodSchema,
     resetPasswordZodSchema,
-    changePasswordZodSchema,
+ changePasswordZodSchema,
+    updateProfileZodSchema,
  } from "./auth.validation";
 
 
@@ -63,6 +64,14 @@ router.get("/oauth/error", AuthController.handleOAuthError);
 const allRoles = [Role.STUDENT, Role.ADMIN, Role.SUPER_ADMIN] as const;
 
 router.get("/me", checkAuth(...allRoles), AuthController.getMe);
+
+router.patch(
+    "/me",
+    checkAuth(...allRoles),
+    memoryUpload.single("image"),
+    validateRequest(updateProfileZodSchema),
+    AuthController.updateProfile,
+);
 
 router.post(
     "/change-password",

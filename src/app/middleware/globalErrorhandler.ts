@@ -3,6 +3,7 @@ import { NextFunction, Request, Response } from "express";
 import multer from "multer";
 import { StatusCodes } from "http-status-codes";
 import z from "zod";
+import { Prisma } from "../../generated/prisma";
 import AppError from "../errorHelpers/AppError";
 import { envVars } from "../../config/env";
 import handleZodError from "../errorHelpers/handlezoderror";
@@ -52,6 +53,19 @@ export const globalErrorhandler = (err: any, req: Request, res: Response, next: 
                 ? "One or more files exceed the maximum size (10MB per file)"
                 : err.message;
         errorSources = [{ path: "files", message }];
+    } else if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+    ) {
+        statusCode = StatusCodes.CONFLICT;
+        message = "This information already exists. Please use a different value.";
+        errorSources = [
+            {
+                path: Array.isArray(err.meta?.target) ? String(err.meta.target[0]) : "",
+                message,
+            }
+        ];
+        stack = err.stack;
     } else if (err instanceof AppError) {
         statusCode = err.statusCode;
         message = err.message;

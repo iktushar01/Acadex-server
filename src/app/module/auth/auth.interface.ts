@@ -38,3 +38,15 @@ export interface IChangePassWordPayload {
     currentPassword: string;
     newPassword: string;
 }
+
+export interface IUpdateProfilePayload {
+    userId: string;
+    role: Role;
+    name?: string;
+    profilePhoto?: string | null;
+    fileBuffer?: Buffer;
+    fileName?: string;
+    contactNumber?: string | null;
+    address?: string | null;
+    gender?: "MALE" | "FEMALE" | "OTHER" | null;
+}

@@ -103,6 +103,31 @@ const getMe = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+const updateProfile = catchAsync(async (req: Request, res: Response) => {
+    const user = req.user as IRequestUser;
+    const fileBuffer = (req as any).file?.buffer;
+    const fileName = (req as any).file?.originalname;
+
+    const result = await AuthService.updateProfile({
+        userId: user.userId,
+        role: user.role,
+        name: req.body.name,
+        profilePhoto: req.body.profilePhoto,
+        fileBuffer,
+        fileName,
+        contactNumber: req.body.contactNumber,
+        address: req.body.address,
+        gender: req.body.gender,
+    });
+
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: "Profile updated successfully",
+        data: result,
+    });
+});
+
 // ─── Refresh Tokens ───────────────────────────────────────────────────────────
 
 const getNewTokens = catchAsync(async (req: Request, res: Response) => {
@@ -259,6 +284,7 @@ export const AuthController = {
     registerStudent,
     loginUser,
     getMe,
+    updateProfile,
     getNewTokens,
     changePassword,
     logoutUser,

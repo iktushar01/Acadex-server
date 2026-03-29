@@ -1,4 +1,4 @@
-import { Role, UserStatus } from "../../../generated/prisma";
+import { Prisma, Role, UserStatus } from "../../../generated/prisma";
 import AppError from "../../errorHelpers/AppError";
 import { auth } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
@@ -12,6 +12,7 @@ import {
     ILoginUser,
     IRegisterStudent,
     IRequestUser,
+    IUpdateProfilePayload,
 } from "./auth.interface";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -137,6 +138,17 @@ const registerStudent = async (payload: IRegisterStudent, fileBuffer?: Buffer, f
         } catch (rollbackErr) {
             console.error("Rollback failed for user:", authData.user.id, rollbackErr);
         }
+
+        if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === "P2002"
+        ) {
+            throw new AppError(
+                StatusCodes.CONFLICT,
+                "This email is already registered. Please log in or use a different email."
+            );
+        }
+
         throw error;
     }
 };
@@ -185,9 +197,9 @@ const loginUser = async (payload: ILoginUser) => {
 
 // ─── Get Me ───────────────────────────────────────────────────────────────────
 
-const getMe = async (user: IRequestUser) => {
+const fetchCurrentUserById = async (userId: string) => {
     const dbUser = await prisma.user.findUnique({
-        where: { id: user.userId },
+        where: { id: userId },
         include: {
             student: true,
             admin: true,
@@ -199,6 +211,115 @@ const getMe = async (user: IRequestUser) => {
     }
 
     return dbUser;
+};
+
+const getMe = async (user: IRequestUser) => {
+    return fetchCurrentUserById(user.userId);
+};
+
+const updateProfile = async (payload: IUpdateProfilePayload) => {
+    const {
+        userId,
+        role,
+        name,
+        profilePhoto,
+        fileBuffer,
+        fileName,
+        contactNumber,
+        address,
+        gender,
+    } = payload;
+
+    const dbUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+            id: true,
+            role: true,
+            student: { select: { id: true } },
+            admin: { select: { id: true } },
+        },
+    });
+
+    if (!dbUser) {
+        throw new AppError(StatusCodes.NOT_FOUND, "User not found");
+    }
+
+    const uploadedProfilePhoto =
+        fileBuffer && fileName
+            ? await uploadFileToCloudinary(fileBuffer, fileName).then((result) => result.secure_url)
+            : undefined;
+
+    const finalProfilePhoto =
+        uploadedProfilePhoto !== undefined ? uploadedProfilePhoto : profilePhoto;
+
+    await prisma.$transaction(async (tx) => {
+        const userUpdateData: Prisma.UserUpdateInput = {};
+
+        if (name !== undefined) {
+            userUpdateData.name = name;
+        }
+
+        if (finalProfilePhoto !== undefined) {
+            userUpdateData.image = finalProfilePhoto;
+        }
+
+        if (Object.keys(userUpdateData).length > 0) {
+            await tx.user.update({
+                where: { id: userId },
+                data: userUpdateData,
+            });
+        }
+
+        if (role === Role.STUDENT && dbUser.student) {
+            const studentUpdateData: Prisma.StudentUpdateInput = {};
+
+            if (name !== undefined) {
+                studentUpdateData.name = name;
+            }
+            if (finalProfilePhoto !== undefined) {
+                studentUpdateData.profilePhoto = finalProfilePhoto;
+            }
+            if (contactNumber !== undefined) {
+                studentUpdateData.contactNumber = contactNumber;
+            }
+            if (address !== undefined) {
+                studentUpdateData.address = address;
+            }
+            if (gender !== undefined) {
+                studentUpdateData.gender = gender;
+            }
+
+            if (Object.keys(studentUpdateData).length > 0) {
+                await tx.student.update({
+                    where: { userId },
+                    data: studentUpdateData,
+                });
+            }
+        }
+
+        if ((role === Role.ADMIN || role === Role.SUPER_ADMIN) && dbUser.admin) {
+            const adminUpdateData: Prisma.AdminUpdateInput = {};
+
+            if (name !== undefined) {
+                adminUpdateData.name = name;
+            }
+            if (finalProfilePhoto !== undefined) {
+                adminUpdateData.profilePhoto = finalProfilePhoto;
+            }
+            if (contactNumber !== undefined) {
+                adminUpdateData.contactNumber = contactNumber;
+            }
+
+            if (Object.keys(adminUpdateData).length > 0) {
+                await tx.admin.update({
+                    where: { userId },
+                    data: adminUpdateData,
+                });
+            }
+        }
+    });
+
+    return fetchCurrentUserById(userId);
 };
 
 // ─── Refresh tokens ───────────────────────────────────────────────────────────
@@ -419,6 +540,7 @@ export const AuthService = {
     registerStudent,
     loginUser,
     getMe,
+    updateProfile,
     getNewTokens,
     changePassword,
     logoutUser,

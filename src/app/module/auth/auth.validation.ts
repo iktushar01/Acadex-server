@@ -1,4 +1,5 @@
 import z from "zod";
+import { Gender } from "../../../generated/prisma";
 
 /**
  * Auth module owns the public registration schema.
@@ -71,3 +72,82 @@ export const resetPasswordZodSchema = z.object({
         .min(6, "New password must be at least 6 characters")
         .max(20, "New password must be at most 20 characters"),
 });
+
+const optionalTrimmedString = z.preprocess(
+    (value) => {
+        if (typeof value !== "string") return value;
+        const trimmed = value.trim();
+        return trimmed === "" ? undefined : trimmed;
+    },
+    z.string().trim().optional(),
+);
+
+const optionalNullableTrimmedString = z.preprocess(
+    (value) => {
+        if (value === null) return null;
+        if (typeof value !== "string") return value;
+        const trimmed = value.trim();
+        return trimmed === "" ? null : trimmed;
+    },
+    z.string().trim().nullable().optional(),
+);
+
+export const updateProfileZodSchema = z.object({
+    name: optionalTrimmedString
+        .pipe(
+            z
+                .string()
+                .min(2, "Name must be at least 2 characters")
+                .max(50, "Name must be at most 50 characters")
+                .optional(),
+        ),
+    profilePhoto: z.preprocess(
+        (value) => {
+            if (value === null) return null;
+            if (typeof value !== "string") return value;
+            const trimmed = value.trim();
+            return trimmed === "" ? null : trimmed;
+        },
+        z
+            .string()
+            .url("Profile photo must be a valid URL")
+            .nullable()
+            .optional(),
+    ),
+    contactNumber: optionalNullableTrimmedString.pipe(
+        z
+            .string()
+            .min(7, "Contact number must be at least 7 characters")
+            .max(15, "Contact number must be at most 15 characters")
+            .regex(/^\+?[0-9\s\-()]+$/, "Contact number contains invalid characters")
+            .nullable()
+            .optional(),
+    ),
+    address: optionalNullableTrimmedString.pipe(
+        z
+            .string()
+            .min(3, "Address must be at least 3 characters")
+            .max(200, "Address must be at most 200 characters")
+            .nullable()
+            .optional(),
+    ),
+    gender: z.preprocess(
+        (value) => {
+            if (value === null) return null;
+            if (typeof value !== "string") return value;
+            const trimmed = value.trim();
+            return trimmed === "" ? null : trimmed;
+        },
+        z.nativeEnum(Gender).nullable().optional(),
+    ),
+}).refine(
+    (data) =>
+        data.name !== undefined ||
+        data.profilePhoto !== undefined ||
+        data.contactNumber !== undefined ||
+        data.address !== undefined ||
+        data.gender !== undefined,
+    {
+        message: "At least one profile field must be provided",
+    },
+);
