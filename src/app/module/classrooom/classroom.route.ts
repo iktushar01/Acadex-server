@@ -3,6 +3,7 @@ import { Role } from "../../../generated/prisma";
 import { checkAuth } from "../../middleware/checkAuth";
 import { validateRequest } from "../../middleware/validateRequest";
 import { ClassroomController } from "./classroom.controller";
+import { checkClassroomMember } from "./classroom.middleware";
 import {
   classroomFilterZodSchema,
   createClassroomZodSchema,
@@ -51,6 +52,19 @@ router.get(
   "/my-memberships",
   checkAuth(Role.STUDENT, Role.SUPER_ADMIN),
   ClassroomController.getMyClassrooms,
+);
+
+router.get(
+  "/leaderboard",
+  checkAuth(Role.STUDENT, Role.SUPER_ADMIN),
+  ClassroomController.getMyClassroomLeaderboard,
+);
+
+router.get(
+  "/:classroomId/leaderboard",
+  checkAuth(Role.STUDENT, Role.ADMIN, Role.SUPER_ADMIN),
+  checkClassroomMember(),
+  ClassroomController.getClassroomLeaderboardById,
 );
 
 /**

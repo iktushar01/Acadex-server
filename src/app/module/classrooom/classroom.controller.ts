@@ -52,6 +52,33 @@ const getMyClassrooms = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getMyClassroomLeaderboard = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as IRequestUser;
+  const result = await ClassroomService.getMyClassroomLeaderboard(user.userId);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Leaderboard fetched successfully",
+    data: result,
+  });
+});
+
+const getClassroomLeaderboardById = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user as IRequestUser;
+  const result = await ClassroomService.getClassroomLeaderboardById(
+    user.userId,
+    req.params.classroomId as string,
+  );
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Classroom leaderboard fetched successfully",
+    data: result,
+  });
+});
+
 /**
  * GET /classrooms/my-requests
  * All classroom creation requests submitted by this user (any status).
@@ -174,6 +201,8 @@ const rejectClassroom = catchAsync(async (req: Request, res: Response) => {
 export const ClassroomController = {
   createClassroom,
   getMyClassrooms,
+  getMyClassroomLeaderboard,
+  getClassroomLeaderboardById,
   getMyClassroomRequests,
   getClassroomById,
   getClassrooms,

@@ -153,6 +153,210 @@ const getMyClassrooms = async (userId: string) => {
   }));
 };
 
+const buildLeaderboardForClassrooms = async (
+  userId: string,
+  classroomIds: string[],
+) => {
+  if (classroomIds.length === 0) {
+    return [];
+  }
+
+  const memberships = await prisma.membership.findMany({
+    where: {
+      userId,
+      classroomId: { in: classroomIds },
+    },
+    include: {
+      classroom: {
+        select: {
+          id: true,
+          name: true,
+          institutionName: true,
+          status: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const [allMembers, notes, comments, favorites] = await Promise.all([
+    prisma.membership.findMany({
+      where: { classroomId: { in: classroomIds } },
+      select: {
+        classroomId: true,
+        role: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.note.findMany({
+      where: { classroomId: { in: classroomIds } },
+      select: {
+        classroomId: true,
+        uploadedBy: true,
+        status: true,
+      },
+    }),
+    prisma.comment.findMany({
+      where: {
+        note: {
+          classroomId: { in: classroomIds },
+        },
+      },
+      select: {
+        userId: true,
+        note: {
+          select: {
+            classroomId: true,
+          },
+        },
+      },
+    }),
+    prisma.favorite.findMany({
+      where: {
+        note: {
+          classroomId: { in: classroomIds },
+        },
+      },
+      select: {
+        userId: true,
+        note: {
+          select: {
+            classroomId: true,
+            uploadedBy: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const scoreMap = new Map<string, {
+    userId: string;
+    name: string;
+    email: string;
+    image: string | null;
+    memberRole: MembershipRole;
+    score: number;
+    notesUploaded: number;
+    approvedNotes: number;
+    commentsCount: number;
+    favoritesReceived: number;
+  }>();
+
+  for (const member of allMembers) {
+    const key = `${member.classroomId}:${member.user.id}`;
+    scoreMap.set(key, {
+      userId: member.user.id,
+      name: member.user.name,
+      email: member.user.email,
+      image: member.user.image,
+      memberRole: member.role,
+      score: 0,
+      notesUploaded: 0,
+      approvedNotes: 0,
+      commentsCount: 0,
+      favoritesReceived: 0,
+    });
+  }
+
+  for (const note of notes) {
+    const key = `${note.classroomId}:${note.uploadedBy}`;
+    const existing = scoreMap.get(key);
+
+    if (!existing) continue;
+
+    existing.notesUploaded += 1;
+    existing.score += 10;
+
+    if (note.status === "APPROVED") {
+      existing.approvedNotes += 1;
+      existing.score += 20;
+    }
+  }
+
+  for (const comment of comments) {
+    const key = `${comment.note.classroomId}:${comment.userId}`;
+    const existing = scoreMap.get(key);
+
+    if (!existing) continue;
+
+    existing.commentsCount += 1;
+    existing.score += 2;
+  }
+
+  for (const favorite of favorites) {
+    if (favorite.userId === favorite.note.uploadedBy) {
+      continue;
+    }
+
+    const key = `${favorite.note.classroomId}:${favorite.note.uploadedBy}`;
+    const existing = scoreMap.get(key);
+
+    if (!existing) continue;
+
+    existing.favoritesReceived += 1;
+    existing.score += 1;
+  }
+
+  return memberships.map((membership) => {
+    const classroomMembers = allMembers
+      .filter((member) => member.classroomId === membership.classroomId)
+      .map((member) => {
+        const key = `${member.classroomId}:${member.user.id}`;
+        return scoreMap.get(key)!;
+      })
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.name.localeCompare(b.name);
+      })
+      .map((entry, index) => ({
+        rank: index + 1,
+        ...entry,
+      }));
+
+    const myEntry =
+      classroomMembers.find((entry) => entry.userId === userId) ?? null;
+
+    return {
+      classroom: membership.classroom,
+      myMembershipRole: membership.role,
+      topMembers: classroomMembers.slice(0, 10),
+      allMembers: classroomMembers,
+      myRank: myEntry,
+      totalMembers: classroomMembers.length,
+    };
+  });
+};
+
+const getMyClassroomLeaderboard = async (userId: string) => {
+  const memberships = await prisma.membership.findMany({
+    where: { userId },
+    select: { classroomId: true },
+  });
+
+  return buildLeaderboardForClassrooms(
+    userId,
+    memberships.map((membership) => membership.classroomId),
+  );
+};
+
+const getClassroomLeaderboardById = async (userId: string, classroomId: string) => {
+  const [leaderboard] = await buildLeaderboardForClassrooms(userId, [classroomId]);
+
+  if (!leaderboard) {
+    throw new AppError(StatusCodes.NOT_FOUND, "Leaderboard not found for this classroom");
+  }
+
+  return leaderboard;
+};
+
 /**
  * All classroom creation requests submitted by this user (any status).
  * Lets the student track pending / rejected requests on their dashboard.
@@ -390,6 +594,8 @@ const joinClassroom = async (payload: {
 export const ClassroomService = {
   createClassroom,
   getMyClassrooms,
+  getMyClassroomLeaderboard,
+  getClassroomLeaderboardById,
   getMyClassroomRequests,
   getClassrooms,
   getClassroomById,
