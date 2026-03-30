@@ -10,6 +10,85 @@ cloudinary.config({
     api_secret: envVars.CLOUDINARY_API_SECRET,
 })
 
+const sanitizeFileName = (fileName: string) =>
+    fileName
+        .split(".")
+        .slice(0, -1)
+        .join(".")
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9\-]/g, "");
+
+const getCloudinaryFolder = (fileName: string) => {
+    const extension = fileName.split(".").pop()?.toLowerCase();
+    return extension === "pdf" ? "pdfs" : "images";
+};
+
+const getCloudinaryResourceType = (fileName: string): "image" | "raw" => {
+    const extension = fileName.split(".").pop()?.toLowerCase();
+    return extension === "pdf" ? "raw" : "image";
+};
+
+const collapseDuplicateFolderSegments = (assetPath: string) =>
+    assetPath
+        .replace(/^(Acadex\/pdfs)\/\1\//, "$1/")
+        .replace(/^(Acadex\/images)\/\1\//, "$1/");
+
+const getDedupedPath = (pathname: string) => {
+    const match = pathname.match(/(\/upload\/(?:v\d+\/)?)(.+)$/);
+
+    if (!match) {
+        return null;
+    }
+
+    const [, prefix, assetPath] = match;
+    const collapsedAssetPath = collapseDuplicateFolderSegments(assetPath);
+
+    if (collapsedAssetPath !== assetPath) {
+        return `${prefix}${collapsedAssetPath}`;
+    }
+
+    const parts = assetPath.split("/");
+
+    if (parts.length % 2 !== 0) {
+        return null;
+    }
+
+    const half = parts.length / 2;
+    const firstHalf = parts.slice(0, half).join("/");
+    const secondHalf = parts.slice(half).join("/");
+
+    if (firstHalf !== secondHalf) {
+        return null;
+    }
+
+    return `${prefix}${secondHalf}`;
+};
+
+export const normalizeCloudinaryUrl = (url: string, fileName?: string | null) => {
+    try {
+        const parsed = new URL(url);
+
+        if (!parsed.hostname.endsWith("cloudinary.com")) {
+            return url;
+        }
+
+        const dedupedPath = getDedupedPath(parsed.pathname);
+
+        if (dedupedPath) {
+            parsed.pathname = dedupedPath;
+        }
+
+        if (fileName?.toLowerCase().endsWith(".pdf")) {
+            parsed.pathname = parsed.pathname.replace("/image/upload/", "/raw/upload/");
+        }
+
+        return parsed.toString();
+    } catch {
+        return url;
+    }
+};
+
 export const uploadFileToCloudinary = async (
     buffer: Buffer,
     fileName: string,
@@ -18,16 +97,7 @@ export const uploadFileToCloudinary = async (
         throw new AppError(StatusCodes.BAD_REQUEST, "File buffer and file name are required for upload");
     }
 
-    const extension = fileName.split(".").pop()?.toLocaleLowerCase();
-
-    const fileNameWithoutExtension = fileName
-        .split(".")
-        .slice(0, -1)
-        .join(".")
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        // eslint-disable-next-line no-useless-escape
-        .replace(/[^a-z0-9\-]/g, "");
+    const fileNameWithoutExtension = sanitizeFileName(fileName);
 
     const uniqueName =
         Math.random().toString(36).substring(2) +
@@ -36,20 +106,25 @@ export const uploadFileToCloudinary = async (
         "-" +
         fileNameWithoutExtension;
 
-    const folder = extension === "pdf" ? "pdfs" : "images";
+    const folder = getCloudinaryFolder(fileName);
+    const resourceType = getCloudinaryResourceType(fileName);
 
     return new Promise((resolve, reject) => {
         cloudinary.uploader.upload_stream(
             {
-                resource_type: "auto",
-                public_id: `Acadex/${folder}/${uniqueName}`,
+                resource_type: resourceType,
+                public_id: uniqueName,
                 folder: `Acadex/${folder}`,
+                use_filename: false,
+                unique_filename: false,
             },
             (error, result) => {
                 if (error) {
                     return reject(new AppError(StatusCodes.INTERNAL_SERVER_ERROR, "Failed to upload file to Cloudinary"));
                 }
-                resolve(result as UploadApiResponse);
+                const normalizedResult = result as UploadApiResponse;
+                normalizedResult.secure_url = normalizeCloudinaryUrl(normalizedResult.secure_url, fileName);
+                resolve(normalizedResult);
             }
         ).end(buffer);
     })
@@ -57,22 +132,36 @@ export const uploadFileToCloudinary = async (
 
 export const deleteFileFromCloudinary = async (url: string, resourceType: "image" | "video" | "raw" = "image") => {
     try {
-        // Extract public_id from URL - handles nested folders
-        // Format: .../upload/v12345/Acadex/folder/public_id.ext
+        const normalizedUrl = normalizeCloudinaryUrl(url);
         const regex = /\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-zA-Z0-9]+)?$/;
-        const match = url.match(regex);
+        const match = normalizedUrl.match(regex);
 
-        if (match && match[1]) {
-            const publicId = match[1];
+        if (!match?.[1]) {
+            return;
+        }
 
-            const result = await cloudinary.uploader.destroy(publicId, {
+        const publicId = match[1];
+        const candidateIds = [publicId];
+
+        if (url !== normalizedUrl) {
+            const legacyMatch = url.match(regex);
+            if (legacyMatch?.[1]) {
+                candidateIds.push(legacyMatch[1]);
+            }
+        }
+
+        for (const candidateId of [...new Set(candidateIds)]) {
+            const result = await cloudinary.uploader.destroy(candidateId, {
                 resource_type: resourceType
             });
 
             if (result.result === "ok") {
-                console.log(`File ${publicId} deleted from Cloudinary successfully`);
-            } else {
-                console.warn(`Cloudinary deletion returned status: ${result.result} for publicId: ${publicId}`);
+                console.log(`File ${candidateId} deleted from Cloudinary successfully`);
+                return;
+            }
+
+            if (result.result !== "not found") {
+                console.warn(`Cloudinary deletion returned status: ${result.result} for publicId: ${candidateId}`);
             }
         }
     } catch (error) {

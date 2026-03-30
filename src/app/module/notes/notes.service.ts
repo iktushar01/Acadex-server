@@ -2,7 +2,7 @@ import { ClassroomStatus, MembershipRole, NoteStatus } from "../../../generated/
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
 import { StatusCodes } from "http-status-codes";
-import { deleteFileFromCloudinary } from "../../../config/cloudinary.config";
+import { deleteFileFromCloudinary, normalizeCloudinaryUrl } from "../../../config/cloudinary.config";
 import { QueryBuilder } from "../../utils/QueryBuilder";
 import { 
     ICreateNotePayload,
@@ -63,6 +63,14 @@ const noteSelect = {
 
 const NOTE_SEARCHABLE_FIELDS = ["title", "description"];
 const NOTE_FILTERABLE_FIELDS = ["subjectId", "folderId", "status", "uploadedBy"];
+
+const normalizeNoteFiles = <T extends { files?: Array<{ url: string; fileName?: string | null }> }>(note: T): T => ({
+  ...note,
+  files: note.files?.map((file) => ({
+    ...file,
+    url: normalizeCloudinaryUrl(file.url, file.fileName),
+  })),
+});
 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -278,10 +286,12 @@ const createNote = async (payload: ICreateNotePayload) => {
     });
 
     // Re-fetch with full select shape (createMany doesn't return records)
-    return tx.note.findUniqueOrThrow({
+    const createdNote = await tx.note.findUniqueOrThrow({
       where: { id: note.id },
       select: noteSelect,
     });
+
+    return normalizeNoteFiles(createdNote);
   });
 };
 
@@ -369,7 +379,15 @@ const getNotes = async (payload: IGetNotesPayload) => {
       folder: noteSelect.folder,
     });
 
-  return notesQuery.execute();
+  const result = await notesQuery.execute();
+  const notes = result.data as Array<{
+    files?: Array<{ url: string; fileName?: string | null }>;
+  }>;
+
+  return {
+    ...result,
+    data: notes.map((note) => normalizeNoteFiles(note)),
+  };
 };
 
 /**
@@ -426,7 +444,7 @@ const getNoteById = async (payload: IGetNoteByIdPayload) => {
   }
 
   const { classroom, ...noteData } = note;
-  return noteData;
+  return normalizeNoteFiles(noteData);
 };
 
 // ─── Approve ──────────────────────────────────────────────────────────────────
