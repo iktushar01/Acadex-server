@@ -95,8 +95,8 @@ export const globalErrorhandler = (err: any, req: Request, res: Response, next: 
         statusCode,
         message: message,
         errorSources,
-        error: envVars.NODE_ENV === 'development' ? err : undefined,
-        stack: envVars.NODE_ENV === 'development' ? stack : undefined,
+        ...(envVars.NODE_ENV === 'development' ? { error: err } : {}),
+        ...(envVars.NODE_ENV === 'development' && stack ? { stack } : {}),
     }
 
     res.status(statusCode).json(errorResponse);

@@ -26,8 +26,8 @@ const createSubject = catchAsync(async (req: Request, res: Response) => {
     userId: user.userId,
     name: req.body.name,
     classroomId: req.body.classroomId,
-    coverImage: req.body.coverImage,
-    coverImageBase64,
+    ...(req.body.coverImage !== undefined ? { coverImage: req.body.coverImage } : {}),
+    ...(coverImageBase64 !== undefined ? { coverImageBase64 } : {}),
   });
 
   sendResponse(res, {
@@ -79,9 +79,9 @@ const updateSubject = catchAsync(async (req: Request, res: Response) => {
   const result = await SubjectService.updateSubject({
     userId: user.userId,
     subjectId: req.params.id as string,
-    name: req.body.name,
-    coverImage: req.body.coverImage,
-    coverImageBase64,
+    ...(req.body.name !== undefined ? { name: req.body.name } : {}),
+    ...(req.body.coverImage !== undefined ? { coverImage: req.body.coverImage } : {}),
+    ...(coverImageBase64 !== undefined ? { coverImageBase64 } : {}),
   });
 
   sendResponse(res, {

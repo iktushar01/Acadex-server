@@ -49,7 +49,7 @@ const registerStudent = catchAsync(async (req: Request, res: Response) => {
     setAuthCookies(res, {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
-        sessionToken: result.token ?? undefined,
+        ...(result.token ? { sessionToken: result.token } : {}),
     });
 
     sendResponse(res, {
@@ -74,7 +74,7 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
     setAuthCookies(res, {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
-        sessionToken: result.token ?? undefined,
+        ...(result.token ? { sessionToken: result.token } : {}),
     });
 
     sendResponse(res, {

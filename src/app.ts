@@ -24,7 +24,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
 
-app.use("/api/auth/*", toNodeHandler(auth))
+app.use("/api/auth", toNodeHandler(auth))
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));

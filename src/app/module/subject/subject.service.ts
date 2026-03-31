@@ -144,7 +144,11 @@ const createSubject = async (payload: ICreateSubjectPayload) => {
 
   // 4. Create subject
   return prisma.subject.create({
-    data: { name, classroomId, coverImage },
+    data: {
+      name,
+      classroomId,
+      ...(coverImage !== undefined ? { coverImage } : {}),
+    },
     select: subjectSelect,
   });
 };
@@ -214,9 +218,9 @@ const updateSubject = async (payload: IUpdateSubjectPayload) => {
 
   return prisma.subject.update({
     where: { id: subjectId },
-    data: { 
-      name,
-      coverImage
+    data: {
+      ...(name !== undefined ? { name } : {}),
+      ...(coverImage !== undefined ? { coverImage } : {}),
     },
     select: subjectSelect,
   });

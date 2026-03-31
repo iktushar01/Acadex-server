@@ -42,6 +42,11 @@ const getDedupedPath = (pathname: string) => {
     }
 
     const [, prefix, assetPath] = match;
+
+    if (!prefix || !assetPath) {
+        return null;
+    }
+
     const collapsedAssetPath = collapseDuplicateFolderSegments(assetPath);
 
     if (collapsedAssetPath !== assetPath) {

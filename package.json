@@ -5,11 +5,11 @@
   "license": "ISC",
   "author": "",
   "type": "module",
-  "main": "src/app/server.ts",
+  "main": "src/server.ts",
   "scripts": {
-    "dev": "tsx watch src/app/server.ts",
-    "start": "tsx src/app/server.ts",
-    "build": "prisma generate"
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "build": "prisma generate && tsc"
   },
   "dependencies": {
     "@prisma/client": "^7.5.0",

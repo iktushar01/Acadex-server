@@ -22,9 +22,9 @@ const createFolder = catchAsync(async (req: Request, res: Response) => {
   const result = await FolderService.createFolder({
     userId: user.userId,
     name: req.body.name,
-    coverImage: req.body.coverImage,
-    coverImageBase64,
     subjectId: req.body.subjectId,
+    ...(req.body.coverImage !== undefined ? { coverImage: req.body.coverImage } : {}),
+    ...(coverImageBase64 !== undefined ? { coverImageBase64 } : {}),
   });
 
   sendResponse(res, {
@@ -91,9 +91,9 @@ const updateFolder = catchAsync(async (req: Request, res: Response) => {
   const result = await FolderService.updateFolder({
     userId: user.userId,
     folderId: req.params.id as string,
-    name: req.body.name,
-    coverImage: req.body.coverImage,
-    coverImageBase64,
+    ...(req.body.name !== undefined ? { name: req.body.name } : {}),
+    ...(req.body.coverImage !== undefined ? { coverImage: req.body.coverImage } : {}),
+    ...(coverImageBase64 !== undefined ? { coverImageBase64 } : {}),
   });
 
   sendResponse(res, {

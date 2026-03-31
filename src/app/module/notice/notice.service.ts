@@ -58,7 +58,12 @@ const upsertNotice = async (payload: IUpsertNoticePayload): Promise<NoticeRecord
     payload.updatedBy,
   );
 
-  return result[0];
+  const notice = result[0];
+  if (!notice) {
+    throw new AppError(StatusCodes.INTERNAL_SERVER_ERROR, "Failed to save notice");
+  }
+
+  return notice;
 };
 
 const toggleNotice = async (payload: IToggleNoticePayload): Promise<NoticeRecord> => {
@@ -80,7 +85,12 @@ const toggleNotice = async (payload: IToggleNoticePayload): Promise<NoticeRecord
     payload.updatedBy,
   );
 
-  return result[0];
+  const notice = result[0];
+  if (!notice) {
+    throw new AppError(StatusCodes.INTERNAL_SERVER_ERROR, "Failed to update notice");
+  }
+
+  return notice;
 };
 
 export const NoticeService = {

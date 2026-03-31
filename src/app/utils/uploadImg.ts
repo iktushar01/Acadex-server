@@ -14,7 +14,7 @@ export const uploadToImgbb = async (base64String: string): Promise<string> => {
     try {
         // Remove data URI prefix if present (e.g., "data:image/png;base64,")
         const base64Data = base64String.includes(",")
-            ? base64String.split(",")[1]
+            ? base64String.split(",")[1] ?? ""
             : base64String;
 
         // Convert base64 to Buffer

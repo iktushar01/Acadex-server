@@ -93,7 +93,7 @@ const registerStudent = async (payload: IRegisterStudent, fileBuffer?: Buffer, f
                     userId: authData.user.id,
                     name,
                     email,
-                    profilePhoto: imageUrl,
+                    ...(imageUrl !== undefined ? { profilePhoto: imageUrl } : {}),
                 },
             });
 
@@ -500,7 +500,7 @@ const googleLoginSuccess = async (session: {
         status: string;
         isDeleted?: boolean | null;
         emailVerified: boolean;
-        image?: string | null;
+        image?: string | null | undefined;
     };
 }) => {
     const { user } = session;
@@ -516,7 +516,7 @@ const googleLoginSuccess = async (session: {
                 userId: user.id,
                 name: user.name,
                 email: user.email,
-                profilePhoto: user.image,
+                ...(user.image !== undefined ? { profilePhoto: user.image } : {}),
             },
         });
     }

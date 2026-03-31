@@ -280,7 +280,7 @@ const updateFolder = async (payload: IUpdateFolderPayload) => {
   return prisma.folder.update({
     where: { id: folderId },
     data: {
-      name,
+      ...(name !== undefined ? { name } : {}),
       ...(finalCoverImage !== undefined && { coverImage: finalCoverImage }),
     },
     select: folderSelect,

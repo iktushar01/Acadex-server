@@ -114,6 +114,7 @@ export class QueryBuilder<
         if (parts.length === 2) {
           // One-level relation: { creator: { email: { contains, mode } } }
           const [relation, nestedField] = parts;
+          if (!relation || !nestedField) return { [field]: stringFilter };
           return { [relation]: { [nestedField]: stringFilter } };
         }
 
@@ -121,6 +122,9 @@ export class QueryBuilder<
           // Two-level relation via array (some):
           // { memberships: { some: { user: { name: { contains, mode } } } } }
           const [relation, nestedRelation, nestedField] = parts;
+          if (!relation || !nestedRelation || !nestedField) {
+            return { [field]: stringFilter };
+          }
           return {
             [relation]: {
               some: { [nestedRelation]: { [nestedField]: stringFilter } },
@@ -204,6 +208,7 @@ export class QueryBuilder<
         if (parts.length === 2) {
           // ?creator.name=John → { creator: { name: "John" } }
           const [relation, nestedField] = parts;
+          if (!relation || !nestedField) return;
 
           if (!queryWhere[relation]) {
             queryWhere[relation] = {};
@@ -218,6 +223,7 @@ export class QueryBuilder<
           // ?memberships.user.name=John
           // → { memberships: { some: { user: { name: "John" } } } }
           const [relation, nestedRelation, nestedField] = parts;
+          if (!relation || !nestedRelation || !nestedField) return;
 
           if (!queryWhere[relation]) {
             queryWhere[relation] = { some: {} };
@@ -321,7 +327,11 @@ export class QueryBuilder<
       if (parts.length === 2) {
         // One-level relation sort: { creator: { name: "asc" } }
         const [relation, nestedField] = parts;
-        this.query.orderBy = { [relation]: { [nestedField]: sortOrder } };
+        if (relation && nestedField) {
+          this.query.orderBy = { [relation]: { [nestedField]: sortOrder } };
+        } else {
+          this.query.orderBy = { createdAt: sortOrder };
+        }
       } else {
         // Prisma does not support deeper nested orderBy in a single object.
         // Fall back to createdAt so the query never errors silently.
