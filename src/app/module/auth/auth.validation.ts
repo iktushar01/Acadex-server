@@ -1,5 +1,5 @@
 import z from "zod";
-import { Gender } from "../../../generated/prisma";
+import { Gender } from "../../lib/prisma-exports";
 
 /**
  * Auth module owns the public registration schema.

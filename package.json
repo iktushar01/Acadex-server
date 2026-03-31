@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
-    "build": "prisma generate && tsc"
+    "build": "prisma generate && tsc && node scripts/copy-generated-prisma.js && node scripts/fix-imports.js"
   },
   "dependencies": {
     "@prisma/client": "^7.5.0",

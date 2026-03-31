@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { Role } from "../../../generated/prisma";
+import { Role } from "../../lib/prisma-exports";
 import { checkAuth } from "../../middleware/checkAuth";
 import { FavoriteController } from "./favorite.controller";
 

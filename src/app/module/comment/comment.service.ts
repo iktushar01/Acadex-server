@@ -1,4 +1,4 @@
-import { ClassroomStatus, NoteStatus, Role } from "../../../generated/prisma";
+import { ClassroomStatus, NoteStatus, Role } from "../../lib/prisma-exports";
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
 import { StatusCodes } from "http-status-codes";

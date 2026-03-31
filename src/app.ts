@@ -4,7 +4,7 @@ import cookieParser from "cookie-parser";
 import { toNodeHandler } from "better-auth/node";
 import path from "node:path";
 import { envVars } from "./config/env";
-import { IndexRoute } from "./app/routes";
+import { IndexRoute } from "./app/routes/index";
 import { globalErrorhandler } from "./app/middleware/globalErrorhandler";
 import { notFound } from "./app/middleware/notFound";
 import { auth } from "./app/lib/auth";

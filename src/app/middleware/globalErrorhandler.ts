@@ -3,7 +3,7 @@ import { NextFunction, Request, Response } from "express";
 import multer from "multer";
 import { StatusCodes } from "http-status-codes";
 import z from "zod";
-import { Prisma } from "../../generated/prisma";
+import { Prisma } from "../lib/prisma-exports";
 import AppError from "../errorHelpers/AppError";
 import { envVars } from "../../config/env";
 import handleZodError from "../errorHelpers/handlezoderror";

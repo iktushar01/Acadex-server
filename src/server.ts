@@ -35,4 +35,8 @@ const bootstrap = async () => {
   }
 };
 
-bootstrap();
+if (process.env.VERCEL !== "1") {
+  bootstrap();
+}
+
+export default app;

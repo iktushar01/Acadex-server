@@ -3,7 +3,7 @@ import AppError from "../errorHelpers/AppError";
 import { prisma } from "../lib/prisma";
 import { jwtUtils } from "../utils/jwt";
 import { cookieUtils } from "../utils/cookies";
-import { Role, UserStatus } from "../../generated/prisma";
+import { Role, UserStatus } from "../lib/prisma-exports";
 import { StatusCodes } from "http-status-codes";
 import { envVars } from "../../config/env";
 

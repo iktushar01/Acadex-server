@@ -1,4 +1,4 @@
-import { ClassroomStatus, InstitutionLevel, MembershipRole } from "../../../generated/prisma";
+import type { ClassroomStatus, InstitutionLevel, MembershipRole } from "../../lib/prisma-exports";
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 

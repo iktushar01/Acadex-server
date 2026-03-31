@@ -1,4 +1,4 @@
-import { Role } from "../../generated/prisma";
+import type { Role } from "../lib/prisma-exports";
 
 declare global {
   namespace Express {

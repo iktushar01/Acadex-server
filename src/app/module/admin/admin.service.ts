@@ -1,5 +1,5 @@
 import { StatusCodes } from "http-status-codes";
-import { ClassroomStatus, NoteStatus, Role, UserStatus } from "../../../generated/prisma";
+import { ClassroomStatus, NoteStatus, Role, UserStatus } from "../../lib/prisma-exports";
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
 import { IRequestUser } from "../auth/auth.interface";

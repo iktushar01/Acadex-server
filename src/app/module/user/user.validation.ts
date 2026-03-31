@@ -1,5 +1,5 @@
 import z from "zod";
-import { Role } from "../../../generated/prisma";
+import { Role } from "../../lib/prisma-exports";
 
 // ─── Reusable primitives ──────────────────────────────────────────────────────
 

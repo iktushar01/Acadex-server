@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { MembershipRole, Role } from "../../../generated/prisma";
+import { MembershipRole, Role } from "../../lib/prisma-exports";
 import { checkAuth } from "../../middleware/checkAuth";
 import { validateRequest } from "../../middleware/validateRequest";
 import { ClassroomController } from "./classroom.controller";

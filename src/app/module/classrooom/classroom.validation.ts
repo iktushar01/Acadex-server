@@ -1,5 +1,5 @@
 import z from "zod";
-import { ClassroomStatus, InstitutionLevel, MembershipRole } from "../../../generated/prisma";
+import { ClassroomStatus, InstitutionLevel, MembershipRole } from "../../lib/prisma-exports";
 
 // ─── Create Classroom ─────────────────────────────────────────────────────────
 

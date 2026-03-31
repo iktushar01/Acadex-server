@@ -1,4 +1,4 @@
-import { Role } from "../../../generated/prisma";
+import { Role } from "../../lib/prisma-exports";
 import AppError from "../../errorHelpers/AppError";
 import { auth } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";

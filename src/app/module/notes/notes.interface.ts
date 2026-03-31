@@ -1,4 +1,4 @@
-import { NoteStatus } from "../../../generated/prisma";
+import type { NoteStatus } from "../../lib/prisma-exports";
 
 // ─── Uploaded file shape ──────────────────────────────────────────────────────
 

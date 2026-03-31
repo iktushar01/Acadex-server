@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
-import { ClassroomStatus, MembershipRole } from "../../../generated/prisma";
+import { ClassroomStatus, MembershipRole } from "../../lib/prisma-exports";
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
 import { IRequestUser } from "../auth/auth.interface";
