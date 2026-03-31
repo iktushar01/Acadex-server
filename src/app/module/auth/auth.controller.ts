@@ -240,6 +240,7 @@ const googleLogin = catchAsync((req: Request, res: Response) => {
     res.render("googleRedirect", {
         callbackURL,
         betterAuthUrl: envVars.BETTER_AUTH_URL,
+        frontendUrl: envVars.FRONTEND_URL,
     });
 });
 
