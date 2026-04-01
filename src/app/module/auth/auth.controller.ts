@@ -134,10 +134,10 @@ const getNewTokens = catchAsync(async (req: Request, res: Response) => {
     const oldRefreshToken = req.cookies.refreshToken;
     const sessionToken = req.cookies["better-auth.session_token"];
 
-    if (!oldRefreshToken || !sessionToken) {
+    if (!oldRefreshToken) {
         throw new AppError(
             StatusCodes.UNAUTHORIZED,
-            "Refresh token or session token not found",
+            "Refresh token not found",
         );
     }
 
@@ -244,6 +244,28 @@ const googleLogin = catchAsync((req: Request, res: Response) => {
     });
 });
 
+const createOAuthExchangeCode = (payload: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    status: string;
+    isDeleted?: boolean | null;
+    emailVerified: boolean;
+    image?: string | null | undefined;
+}) =>
+    tokenUtils.getOAuthExchangeCode({
+        sub: payload.id,
+        type: "oauth_exchange",
+        name: payload.name,
+        email: payload.email,
+        role: payload.role,
+        status: payload.status,
+        isDeleted: !!payload.isDeleted,
+        emailVerified: payload.emailVerified,
+        image: payload.image ?? undefined,
+    });
+
 const googleLoginSuccess = catchAsync(async (req: Request, res: Response) => {
     const redirectPath = (req.query.redirect as string) || "/dashboard";
     const sessionToken = req.cookies["better-auth.session_token"];
@@ -262,21 +284,62 @@ const googleLoginSuccess = catchAsync(async (req: Request, res: Response) => {
 
     const result = await AuthService.googleLoginSuccess(session);
 
-    tokenUtils.getAccessTokenFromCookie(res, result.accessToken);
-    tokenUtils.getRefreshTokenFromCookie(res, result.refreshToken);
-
     // Validate redirect path — must start with "/" but not "//" (open redirect guard)
     const safeRedirect =
         redirectPath.startsWith("/") && !redirectPath.startsWith("//")
             ? redirectPath
             : "/dashboard";
 
-    res.redirect(`${envVars.FRONTEND_URL}${safeRedirect}`);
+    res.redirect(
+        `${envVars.FRONTEND_URL}/google/callback?code=${encodeURIComponent(createOAuthExchangeCode(result.user))}&redirect=${encodeURIComponent(safeRedirect)}`,
+    );
 });
 
 const handleOAuthError = catchAsync((req: Request, res: Response) => {
     const error = (req.query.error as string) || "oauth_failed";
     res.redirect(`${envVars.FRONTEND_URL}/login?error=${error}`);
+});
+
+const exchangeOAuthCode = catchAsync(async (req: Request, res: Response) => {
+    const code = req.query.code as string | undefined;
+
+    if (!code) {
+        throw new AppError(StatusCodes.BAD_REQUEST, "OAuth code is required");
+    }
+
+    const verifiedCode = tokenUtils.verifyOAuthExchangeCode(code);
+
+    if (!verifiedCode.success || !verifiedCode.decoded) {
+        throw new AppError(StatusCodes.UNAUTHORIZED, "Invalid or expired OAuth code");
+    }
+
+    const payload = verifiedCode.decoded;
+
+    if (payload.type !== "oauth_exchange" || !payload.sub) {
+        throw new AppError(StatusCodes.UNAUTHORIZED, "Invalid OAuth exchange payload");
+    }
+
+    const result = await AuthService.issueTokensFromOAuthCode({
+        id: payload.sub as string,
+        name: payload.name as string,
+        email: payload.email as string,
+        role: payload.role as string,
+        status: payload.status as string,
+        isDeleted: Boolean(payload.isDeleted),
+        emailVerified: Boolean(payload.emailVerified),
+        image: (payload.image as string | undefined) ?? undefined,
+    });
+
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: "OAuth code exchanged successfully",
+        data: {
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
+            user: result.user,
+        },
+    });
 });
 
 // ─── Exports ──────────────────────────────────────────────────────────────────
@@ -294,5 +357,6 @@ export const AuthController = {
     resetPassword,
     googleLogin,
     googleLoginSuccess,
+    exchangeOAuthCode,
     handleOAuthError,
 };

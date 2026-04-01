@@ -14,6 +14,12 @@ const getAccessToken = (payload: JwtPayload) => {
     return accessToken;
 }
 
+const getOAuthExchangeCode = (payload: JwtPayload) => {
+    return jwtUtils.createToken(payload, envVars.BETTER_AUTH_SECRET, {
+        expiresIn: "2m",
+    });
+}
+
 const getRefreshToken = (payload: JwtPayload) => {
     const refreshToken = jwtUtils.createToken(payload, envVars.REFRESH_TOKEN_SECRET, {
         ...(envVars.REFRESH_TOKEN_EXPIRES_IN !== undefined
@@ -62,10 +68,16 @@ const getBetterAuthAccessToken = (res: Response, token: string) => {
     });
 }
 
+const verifyOAuthExchangeCode = (token: string) => {
+    return jwtUtils.verifyToken(token, envVars.BETTER_AUTH_SECRET);
+}
+
 export const tokenUtils = {
     getAccessToken,
+    getOAuthExchangeCode,
     getRefreshToken,
     getAccessTokenFromCookie,
     getRefreshTokenFromCookie,
-    getBetterAuthAccessToken
+    getBetterAuthAccessToken,
+    verifyOAuthExchangeCode
 }

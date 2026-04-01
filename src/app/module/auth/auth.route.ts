@@ -57,6 +57,7 @@ router.post(
 
 router.get("/login/google", AuthController.googleLogin);
 router.get("/google/success", AuthController.googleLoginSuccess);
+router.get("/oauth/code", AuthController.exchangeOAuthCode);
 router.get("/oauth/error", AuthController.handleOAuthError);
 
 // ─── Authenticated routes (all roles) ────────────────────────────────────────

@@ -325,17 +325,7 @@ const updateProfile = async (payload: IUpdateProfilePayload) => {
 
 // ─── Refresh tokens ───────────────────────────────────────────────────────────
 
-const getNewTokens = async (oldRefreshToken: string, sessionToken: string) => {
-    // Verify the session is still alive in the DB
-    const session = await prisma.session.findUnique({
-        where: { token: sessionToken },
-        include: { user: true },
-    });
-
-    if (!session) {
-        throw new AppError(StatusCodes.UNAUTHORIZED, "Session not found or expired");
-    }
-
+const getNewTokens = async (oldRefreshToken: string, sessionToken?: string) => {
     // Verify the refresh JWT is valid and not tampered with
     const verified = jwtUtils.verifyToken(oldRefreshToken, envVars.REFRESH_TOKEN_SECRET);
 
@@ -358,13 +348,22 @@ const getNewTokens = async (oldRefreshToken: string, sessionToken: string) => {
     // The DB session token is better-auth's own token — we intentionally do NOT
     // overwrite it with our JWT refresh token. We just touch the expiry so the
     // session stays alive while the user is active.
-    await prisma.session.update({
-        where: { token: sessionToken },
-        data: {
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-            updatedAt: new Date(),
-        },
-    });
+    if (sessionToken) {
+        const session = await prisma.session.findUnique({
+            where: { token: sessionToken },
+            include: { user: true },
+        });
+
+        if (session) {
+            await prisma.session.update({
+                where: { token: sessionToken },
+                data: {
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                    updatedAt: new Date(),
+                },
+            });
+        }
+    }
 
     return {
         accessToken,
@@ -532,7 +531,30 @@ const googleLoginSuccess = async (session: {
         emailVerified: user.emailVerified,
     });
 
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, user };
+};
+
+const issueTokensFromOAuthCode = async (user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    status: string;
+    isDeleted?: boolean | null;
+    emailVerified: boolean;
+    image?: string | null | undefined;
+}) => {
+    const { accessToken, refreshToken } = buildTokenPair({
+        id: user.id,
+        role: user.role as Role,
+        name: user.name,
+        email: user.email,
+        status: user.status as UserStatus,
+        isDeleted: !!user.isDeleted,
+        emailVerified: user.emailVerified,
+    });
+
+    return { accessToken, refreshToken, user };
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────
@@ -549,4 +571,5 @@ export const AuthService = {
     forgetPassword,
     resetPassword,
     googleLoginSuccess,
+    issueTokensFromOAuthCode,
 };
