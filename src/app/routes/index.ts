@@ -9,6 +9,7 @@ import { FavoriteRoutes } from "../module/favorite/favorite.route";
 import { CommentRoutes } from "../module/comment/comment.route";
 import { AdminRoutes } from "../module/admin/admin.route";
 import { NoticeRoutes } from "../module/notice/notice.route";
+import { CoverPageRoutes } from "../module/coverPage/coverPage.route";
 const router = express.Router();
 
 router.use("/auth", AuthRoute);
@@ -21,6 +22,7 @@ router.use("/favorites", FavoriteRoutes);
 router.use("/comments", CommentRoutes);
 router.use("/admins", AdminRoutes);
 router.use("/notices", NoticeRoutes);
+router.use("/cover-pages", CoverPageRoutes);
 
 
 export const IndexRoute = router;
