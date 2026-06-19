@@ -1,5 +1,0 @@
-allowBuilds:
-  '@prisma/engines': false
-  core-js: false
-  esbuild: false
-  prisma: false
