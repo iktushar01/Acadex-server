@@ -29,6 +29,7 @@ model User {
   favorites           Favorite[]
   comments            Comment[] @relation("UserComments")
   commentLikes        CommentLike[] @relation("UserCommentLikes")
+  chatSessions        ChatSession[]
   @@map("user")
 }
 

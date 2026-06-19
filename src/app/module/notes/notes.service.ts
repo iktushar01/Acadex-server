@@ -13,6 +13,7 @@ import {
     IRejectNotePayload,
     IUploadedFile,
 } from "./notes.interface";
+import { ChatbotIngestion } from "../chatbot/chatbot.ingestion";
 
 
 // ─── Shared select ────────────────────────────────────────────────────────────
@@ -468,7 +469,7 @@ const approveNote = async (payload: IApproveNotePayload) => {
     );
   }
 
-  return prisma.note.update({
+  const approved = await prisma.note.update({
     where: { id: noteId },
     data: {
       status: NoteStatus.APPROVED,
@@ -476,6 +477,12 @@ const approveNote = async (payload: IApproveNotePayload) => {
     },
     select: noteSelect,
   });
+
+  void ChatbotIngestion.indexNote(noteId).catch((error) => {
+    console.error(`[Chatbot] Failed to index approved note ${noteId}:`, error);
+  });
+
+  return approved;
 };
 
 // ─── Reject ───────────────────────────────────────────────────────────────────
@@ -564,6 +571,10 @@ const deleteNote = async (payload: IDeleteNotePayload) => {
     prisma.noteFile.deleteMany({ where: { noteId } }),
     prisma.note.delete({ where: { id: noteId } }),
   ]);
+
+  void ChatbotIngestion.removeNote(noteId).catch((error) => {
+    console.error(`[Chatbot] Failed to remove indexed note ${noteId}:`, error);
+  });
 
   // Best-effort Cloudinary cleanup — does not throw on failure
   await cleanupCloudinaryFiles(filesToDelete);

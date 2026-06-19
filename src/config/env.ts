@@ -35,6 +35,13 @@ interface EnvConfig {
     IMGBB_API_KEY: string;
     SUPER_ADMIN_EMAIL: string;
     SUPER_ADMIN_PASSWORD: string;
+    OPENROUTER_API_KEY: string | undefined;
+    OPENROUTER_BASE_URL: string;
+    OPENROUTER_EMBEDDING_MODEL: string;
+    OPENROUTER_LLM_MODEL: string;
+    CHATBOT_TOP_K: number;
+    CHATBOT_MIN_SIMILARITY: number;
+    CHATBOT_EMBEDDING_DIMENSION: number;
 }
 
 const requiredEnvVariables = [
@@ -105,6 +112,20 @@ const loadEnvVariables = (): EnvConfig => {
         IMGBB_API_KEY: process.env.IMGBB_API_KEY as string,
         SUPER_ADMIN_EMAIL: process.env.SUPER_ADMIN_EMAIL as string,
         SUPER_ADMIN_PASSWORD: process.env.SUPER_ADMIN_PASSWORD as string,
+        OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+        OPENROUTER_BASE_URL:
+            process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1",
+        OPENROUTER_EMBEDDING_MODEL:
+            process.env.OPENROUTER_EMBEDDING_MODEL ??
+            "nvidia/llama-nemotron-embed-vl-1b-v2:free",
+        OPENROUTER_LLM_MODEL:
+            process.env.OPENROUTER_LLM_MODEL ??
+            "nvidia/nemotron-3-super-120b-a12b:free",
+        CHATBOT_TOP_K: Number(process.env.CHATBOT_TOP_K ?? 5),
+        CHATBOT_MIN_SIMILARITY: Number(process.env.CHATBOT_MIN_SIMILARITY ?? 0.55),
+        CHATBOT_EMBEDDING_DIMENSION: Number(
+            process.env.CHATBOT_EMBEDDING_DIMENSION ?? 2048,
+        ),
     }
 }
 
