@@ -30,6 +30,7 @@ model User {
   comments            Comment[] @relation("UserComments")
   commentLikes        CommentLike[] @relation("UserCommentLikes")
   chatSessions        ChatSession[]
+  groupMessages       GroupMessage[] @relation("GroupMessageSender")
   @@map("user")
 }
 

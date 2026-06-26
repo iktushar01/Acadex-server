@@ -1,0 +1,15 @@
+model GroupMessage {
+  id          String    @id @default(uuid())
+  classroomId String
+  senderId    String
+  content     String
+  createdAt   DateTime  @default(now())
+  deletedAt   DateTime?
+
+  classroom Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  sender    User      @relation("GroupMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([classroomId, createdAt])
+  @@index([classroomId])
+  @@map("group_messages")
+}

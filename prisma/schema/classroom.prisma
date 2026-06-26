@@ -34,6 +34,7 @@ model Classroom {
   memberships     Membership[]
   subjects        Subject[]
   notes           Note[]
+  groupMessages   GroupMessage[]
 
   @@index([status])
   @@index([createdBy])
