@@ -112,7 +112,7 @@ export const checkAuth =
             emailVerified: user.emailVerified,
             iat: 0,
             exp: 0,
-          };
+          } as IRequestUser;
 
           return next();
         }
