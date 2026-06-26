@@ -8,6 +8,7 @@ import {
   ICreateClassroomPayload,
   ILeaveClassroomPayload,
   IRejectClassroomPayload,
+  IUpdateClassroomStatusPayload,
   IUpdateClassroomMemberRolePayload,
 } from "./classroom.interface";
 import { QueryBuilder } from "../../utils/QueryBuilder";
@@ -71,31 +72,12 @@ const classroomSelect = {
   },
 } as const;
 
-// ─── Student: Create classroom request ───────────────────────────────────────
+// ─── Student: Create classroom ───────────────────────────────────────────────
 
 /**
- * Any authenticated student can request a new classroom.
- * Status starts as PENDING — the creator becomes CR only on admin approval.
- *
- * One PENDING request per student at a time to prevent spam.
+ * Creates a classroom immediately as APPROVED and assigns the creator as CR.
  */
 const createClassroom = async (payload: ICreateClassroomPayload) => {
-  const existingPending = await prisma.classroom.findFirst({
-    where: {
-      createdBy: payload.createdBy,
-      status: ClassroomStatus.PENDING,
-    },
-    select: { id: true },
-  });
-
-  if (existingPending) {
-    throw new AppError(
-      StatusCodes.CONFLICT,
-      "You already have a pending classroom request. Please wait for it to be reviewed.",
-    );
-  }
-
-  // ensure uniqueness for joinCode (6 chars)
   let joinCode = generateJoinCode();
   let isUnique = false;
   while (!isUnique) {
@@ -110,20 +92,32 @@ const createClassroom = async (payload: ICreateClassroomPayload) => {
     }
   }
 
-  return prisma.classroom.create({
-    data: {
-      name: payload.name,
-      institutionName: payload.institutionName,
-      level: payload.level,
-      className: payload.className ?? null,
-      department: payload.department ?? null,
-      groupName: payload.groupName ?? null,
-      description: payload.description ?? null,
-      createdBy: payload.createdBy,
-      joinCode,
-      status: ClassroomStatus.PENDING,
-    },
-    select: classroomSelect,
+  return prisma.$transaction(async (tx) => {
+    const classroom = await tx.classroom.create({
+      data: {
+        name: payload.name,
+        institutionName: payload.institutionName,
+        level: payload.level,
+        className: payload.className ?? null,
+        department: payload.department ?? null,
+        groupName: payload.groupName ?? null,
+        description: payload.description ?? null,
+        createdBy: payload.createdBy,
+        joinCode,
+        status: ClassroomStatus.APPROVED,
+      },
+      select: classroomSelect,
+    });
+
+    await tx.membership.create({
+      data: {
+        userId: payload.createdBy,
+        classroomId: classroom.id,
+        role: MembershipRole.CR,
+      },
+    });
+
+    return classroom;
   });
 };
 
@@ -687,10 +681,24 @@ const joinClassroom = async (payload: {
     );
   }
 
+  if (classroom.status === ClassroomStatus.INACTIVE) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      "This classroom is currently inactive.",
+    );
+  }
+
+  if (classroom.status === ClassroomStatus.BANNED) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      "This classroom has been banned.",
+    );
+  }
+
   if (classroom.status !== ClassroomStatus.APPROVED) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      "This classroom is still pending or was rejected.",
+      "This classroom is not available to join.",
     );
   }
 
@@ -769,6 +777,89 @@ const leaveClassroom = async (payload: ILeaveClassroomPayload) => {
   };
 };
 
+// ─── Admin: Update classroom status ───────────────────────────────────────────
+
+const updateClassroomStatus = async (payload: IUpdateClassroomStatusPayload) => {
+  const allowedStatuses: ClassroomStatus[] = [
+    ClassroomStatus.APPROVED,
+    ClassroomStatus.INACTIVE,
+    ClassroomStatus.BANNED,
+  ];
+
+  if (!allowedStatuses.includes(payload.status)) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      "Status must be APPROVED, INACTIVE, or BANNED",
+    );
+  }
+
+  const classroom = await prisma.classroom.findUnique({
+    where: { id: payload.classroomId },
+    select: { id: true },
+  });
+
+  if (!classroom) {
+    throw new AppError(StatusCodes.NOT_FOUND, "Classroom not found");
+  }
+
+  return prisma.classroom.update({
+    where: { id: payload.classroomId },
+    data: {
+      status: payload.status,
+      rejectionReason: payload.reason ?? null,
+      resolvedBy: payload.resolvedBy,
+      resolvedAt: new Date(),
+    },
+    select: classroomSelect,
+  });
+};
+
+// ─── Admin: Delete classroom ──────────────────────────────────────────────────
+
+const deleteClassroom = async (classroomId: string) => {
+  const classroom = await prisma.classroom.findUnique({
+    where: { id: classroomId },
+    select: { id: true, name: true },
+  });
+
+  if (!classroom) {
+    throw new AppError(StatusCodes.NOT_FOUND, "Classroom not found");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const notes = await tx.note.findMany({
+      where: { classroomId },
+      select: { id: true },
+    });
+    const noteIds = notes.map((note) => note.id);
+
+    if (noteIds.length > 0) {
+      await tx.noteFile.deleteMany({ where: { noteId: { in: noteIds } } });
+      await tx.note.deleteMany({ where: { id: { in: noteIds } } });
+    }
+
+    const subjects = await tx.subject.findMany({
+      where: { classroomId },
+      select: { id: true },
+    });
+    const subjectIds = subjects.map((subject) => subject.id);
+
+    if (subjectIds.length > 0) {
+      await tx.folder.deleteMany({ where: { subjectId: { in: subjectIds } } });
+    }
+
+    await tx.subject.deleteMany({ where: { classroomId } });
+    await tx.chatMessage.deleteMany({
+      where: { session: { classroomId } },
+    });
+    await tx.chatSession.deleteMany({ where: { classroomId } });
+    await tx.membership.deleteMany({ where: { classroomId } });
+    await tx.classroom.delete({ where: { id: classroomId } });
+  });
+
+  return { id: classroom.id, name: classroom.name };
+};
+
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
 export const ClassroomService = {
@@ -783,6 +874,8 @@ export const ClassroomService = {
   updateClassroomMemberRole,
   approveClassroom,
   rejectClassroom,
+  updateClassroomStatus,
+  deleteClassroom,
   joinClassroom,
   leaveClassroom,
 };

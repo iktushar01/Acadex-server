@@ -30,8 +30,7 @@ const createClassroom = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: StatusCodes.CREATED,
     success: true,
-    message:
-      "Classroom request submitted successfully. You will be notified once an admin reviews it.",
+    message: "Classroom created successfully. You are now the class representative.",
     data: result,
   });
 });
@@ -240,6 +239,37 @@ const rejectClassroom = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const updateClassroomStatus = catchAsync(async (req: Request, res: Response) => {
+  const admin = req.user as IRequestUser;
+
+  const result = await ClassroomService.updateClassroomStatus({
+    classroomId: req.params.classroomId as string,
+    resolvedBy: admin.userId,
+    status: req.body.status,
+    reason: req.body.reason,
+  });
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: `Classroom marked as ${req.body.status.toLowerCase()}.`,
+    data: result,
+  });
+});
+
+const deleteClassroom = catchAsync(async (req: Request, res: Response) => {
+  const result = await ClassroomService.deleteClassroom(
+    req.params.classroomId as string,
+  );
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: `Classroom "${result.name}" deleted permanently.`,
+    data: result,
+  });
+});
+
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
 export const ClassroomController = {
@@ -254,6 +284,8 @@ export const ClassroomController = {
   getClassrooms,
   approveClassroom,
   rejectClassroom,
+  updateClassroomStatus,
+  deleteClassroom,
   joinClassroom,
   leaveClassroom,
 };

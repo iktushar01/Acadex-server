@@ -28,6 +28,13 @@ export interface IRejectClassroomPayload {
   rejectionReason: string;
 }
 
+export interface IUpdateClassroomStatusPayload {
+  classroomId: string;
+  resolvedBy: string;
+  status: ClassroomStatus;
+  reason?: string;
+}
+
 export interface ILeaveClassroomPayload {
   classroomId: string;
   userId: string;

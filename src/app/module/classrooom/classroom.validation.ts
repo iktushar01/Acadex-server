@@ -71,6 +71,18 @@ export const rejectClassroomZodSchema = z.object({
     .max(500, "Reason must be at most 500 characters"),
 });
 
+export const updateClassroomStatusZodSchema = z.object({
+  status: z.enum(
+    [ClassroomStatus.APPROVED, ClassroomStatus.INACTIVE, ClassroomStatus.BANNED],
+    { message: "Status must be APPROVED, INACTIVE, or BANNED" },
+  ),
+  reason: z
+    .string()
+    .max(500, "Reason must be at most 500 characters")
+    .trim()
+    .optional(),
+});
+
 // ─── Join Classroom ───────────────────────────────────────────────────────────
 
 export const joinClassroomZodSchema = z.object({
@@ -89,6 +101,8 @@ export const classroomFilterZodSchema = z.object({
       ClassroomStatus.PENDING,
       ClassroomStatus.APPROVED,
       ClassroomStatus.REJECTED,
+      ClassroomStatus.INACTIVE,
+      ClassroomStatus.BANNED,
     ])
     .optional(),
 

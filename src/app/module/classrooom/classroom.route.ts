@@ -9,6 +9,7 @@ import {
   createClassroomZodSchema,
   joinClassroomZodSchema,
   rejectClassroomZodSchema,
+  updateClassroomStatusZodSchema,
   updateClassroomMemberRoleZodSchema,
 } from "./classroom.validation";
 
@@ -135,6 +136,19 @@ router.patch(
   checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
   validateRequest(rejectClassroomZodSchema),
   ClassroomController.rejectClassroom,
+);
+
+router.patch(
+  "/:classroomId/status",
+  checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
+  validateRequest(updateClassroomStatusZodSchema),
+  ClassroomController.updateClassroomStatus,
+);
+
+router.delete(
+  "/:classroomId",
+  checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
+  ClassroomController.deleteClassroom,
 );
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -45,10 +45,24 @@ export const checkClassroomRole = (...allowedRoles: MembershipRole[]) => {
         throw new AppError(StatusCodes.NOT_FOUND, "Classroom not found");
       }
 
+      if (classroom.status === ClassroomStatus.INACTIVE) {
+        throw new AppError(
+          StatusCodes.FORBIDDEN,
+          "This classroom is currently inactive.",
+        );
+      }
+
+      if (classroom.status === ClassroomStatus.BANNED) {
+        throw new AppError(
+          StatusCodes.FORBIDDEN,
+          "This classroom has been banned.",
+        );
+      }
+
       if (classroom.status !== ClassroomStatus.APPROVED) {
         throw new AppError(
           StatusCodes.FORBIDDEN,
-          "This classroom is not yet active",
+          "This classroom is not active.",
         );
       }
 

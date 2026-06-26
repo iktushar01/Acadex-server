@@ -14,7 +14,7 @@ model Classroom {
   joinCode        String           @unique
 
   // Approval System
-  status          ClassroomStatus  @default(PENDING)
+  status          ClassroomStatus  @default(APPROVED)
   rejectionReason String?
 
   // Creator

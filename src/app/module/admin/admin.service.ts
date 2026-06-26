@@ -4,6 +4,7 @@ import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
 import { IRequestUser } from "../auth/auth.interface";
 import { IUpdateAdminPayload } from "./admin.interface";
+import { DonationService } from "../donation/donation.service";
 
 const adminPublicSelect = {
     id: true,
@@ -119,6 +120,8 @@ const getDashboardStats = async (requestingUser: IRequestUser) => {
         pendingClassrooms,
         approvedClassrooms,
         rejectedClassrooms,
+        inactiveClassrooms,
+        bannedClassrooms,
         totalSubjects,
         totalNotes,
         approvedNotes,
@@ -143,6 +146,8 @@ const getDashboardStats = async (requestingUser: IRequestUser) => {
         prisma.classroom.count({ where: { status: ClassroomStatus.PENDING } }),
         prisma.classroom.count({ where: { status: ClassroomStatus.APPROVED } }),
         prisma.classroom.count({ where: { status: ClassroomStatus.REJECTED } }),
+        prisma.classroom.count({ where: { status: ClassroomStatus.INACTIVE } }),
+        prisma.classroom.count({ where: { status: ClassroomStatus.BANNED } }),
         prisma.subject.count(),
         prisma.note.count(),
         prisma.note.count({ where: { status: NoteStatus.APPROVED } }),
@@ -169,6 +174,32 @@ const getDashboardStats = async (requestingUser: IRequestUser) => {
         }),
     ]);
 
+    let donationSummary = {
+        configured: false,
+        totalAmountCents: 0,
+        totalDonations: 0,
+        currency: "usd",
+        recentDonations: [] as Array<{
+            id: string;
+            amountCents: number;
+            currency: string;
+            createdAt: string;
+            email: string | null;
+        }>,
+    };
+
+    try {
+        donationSummary = await DonationService.getPaymentStats();
+    } catch {
+        donationSummary = {
+            configured: false,
+            totalAmountCents: 0,
+            totalDonations: 0,
+            currency: "usd",
+            recentDonations: [],
+        };
+    }
+
     return {
         roleScope,
         adminSummary: {
@@ -181,6 +212,8 @@ const getDashboardStats = async (requestingUser: IRequestUser) => {
             pending: pendingClassrooms,
             approved: approvedClassrooms,
             rejected: rejectedClassrooms,
+            inactive: inactiveClassrooms,
+            banned: bannedClassrooms,
         },
         contentSummary: {
             subjects: totalSubjects,
@@ -191,6 +224,7 @@ const getDashboardStats = async (requestingUser: IRequestUser) => {
             comments: totalComments,
         },
         recentClassrooms,
+        donationSummary,
     };
 };
 
