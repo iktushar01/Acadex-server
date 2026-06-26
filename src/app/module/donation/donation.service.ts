@@ -1,9 +1,11 @@
 import { StatusCodes } from "http-status-codes";
 import AppError from "../../errorHelpers/AppError";
-import { stripe } from "../../../config/stripe";
+import { getStripeClient } from "../../../config/stripe";
 import { envVars } from "../../../config/env";
 
 const createCheckoutSession = async (amount: number) => {
+  const stripe = getStripeClient();
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",

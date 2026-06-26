@@ -15,7 +15,14 @@ app.set("view engine", "ejs");
 app.set("views",path.resolve(process.cwd(), `src/app/templates`) )
 
 const corsOptions = {
-    origin: [envVars.FRONTEND_URL, envVars.BETTER_AUTH_URL, "http://localhost:3000", "http://localhost:5000"],
+    origin: [
+        envVars.FRONTEND_URL,
+        envVars.BETTER_AUTH_URL,
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:5000",
+        "https://acadex-client.vercel.app",
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
