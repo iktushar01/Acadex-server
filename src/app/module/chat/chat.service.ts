@@ -29,34 +29,25 @@ const messageSelect = {
 } as const;
 
 const assertClassroomMember = async (userId: string, classroomId: string) => {
-  const classroom = await prisma.classroom.findUnique({
-    where: { id: classroomId },
+  const membership = await prisma.membership.findUnique({
+    where: {
+      userId_classroomId: { userId, classroomId },
+    },
     select: {
-      id: true,
-      status: true,
-      memberships: {
-        where: { userId },
-        select: { role: true },
-        take: 1,
-      },
+      role: true,
+      classroom: { select: { status: true } },
     },
   });
-
-  if (!classroom) {
-    throw new AppError(StatusCodes.NOT_FOUND, "Classroom not found");
-  }
-
-  if (classroom.status !== ClassroomStatus.APPROVED) {
-    throw new AppError(StatusCodes.FORBIDDEN, "This classroom is not active");
-  }
-
-  const membership = classroom.memberships[0];
 
   if (!membership) {
     throw new AppError(
       StatusCodes.FORBIDDEN,
       "You are not a member of this classroom",
     );
+  }
+
+  if (membership.classroom.status !== ClassroomStatus.APPROVED) {
+    throw new AppError(StatusCodes.FORBIDDEN, "This classroom is not active");
   }
 
   return membership;

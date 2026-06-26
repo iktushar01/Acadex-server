@@ -35,15 +35,29 @@ export const checkClassroomRole = (...allowedRoles: MembershipRole[]) => {
         );
       }
 
-      // Verify the classroom exists and is active
-      const classroom = await prisma.classroom.findUnique({
-        where: { id: classroomId as string },
-        select: { id: true, status: true },
+      const membership = await prisma.membership.findUnique({
+        where: {
+          userId_classroomId: {
+            userId: user.userId,
+            classroomId: classroomId as string,
+          },
+        },
+        select: {
+          userId: true,
+          classroomId: true,
+          role: true,
+          classroom: { select: { id: true, status: true } },
+        },
       });
 
-      if (!classroom) {
-        throw new AppError(StatusCodes.NOT_FOUND, "Classroom not found");
+      if (!membership) {
+        throw new AppError(
+          StatusCodes.FORBIDDEN,
+          "You are not a member of this classroom",
+        );
       }
+
+      const classroom = membership.classroom;
 
       if (classroom.status === ClassroomStatus.INACTIVE) {
         throw new AppError(
@@ -63,24 +77,6 @@ export const checkClassroomRole = (...allowedRoles: MembershipRole[]) => {
         throw new AppError(
           StatusCodes.FORBIDDEN,
           "This classroom is not active.",
-        );
-      }
-
-      // Check membership and role inside this classroom
-      const membership = await prisma.membership.findUnique({
-        where: {
-          userId_classroomId: {
-            userId: user.userId,
-            classroomId: classroomId as string,
-          },
-        },
-        select: { userId: true, classroomId: true, role: true },
-      });
-
-      if (!membership) {
-        throw new AppError(
-          StatusCodes.FORBIDDEN,
-          "You are not a member of this classroom",
         );
       }
 
