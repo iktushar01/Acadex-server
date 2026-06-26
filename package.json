@@ -34,7 +34,7 @@
     "nodemailer": "^8.0.2",
     "pdf-parse": "^2.4.5",
     "pg": "^8.18.0",
-    "stripe": "^18.0.0",
+    "stripe": "^18.5.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
