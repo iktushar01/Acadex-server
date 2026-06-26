@@ -20,5 +20,6 @@
       "src": "/(.*)",
       "dest": "dist/server.js"
     }
-  ]
+  ],
+  "regions": ["sin1"]
 }

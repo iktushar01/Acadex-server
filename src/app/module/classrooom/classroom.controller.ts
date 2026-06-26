@@ -43,6 +43,8 @@ const getMyClassrooms = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as IRequestUser;
   const result = await ClassroomService.getMyClassrooms(user.userId);
 
+  res.set("Cache-Control", "private, max-age=30");
+
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,

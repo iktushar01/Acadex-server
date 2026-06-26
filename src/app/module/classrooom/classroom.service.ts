@@ -1,6 +1,7 @@
 import { ClassroomStatus, MembershipRole } from "../../lib/prisma-exports";
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
+import { withMembershipListCache, invalidateMembershipListCache } from "../../lib/membership-list.cache";
 import { StatusCodes } from "http-status-codes";
 import { IQueryParams } from "../../interfaces/query.interface";
 import {
@@ -118,6 +119,9 @@ const createClassroom = async (payload: ICreateClassroomPayload) => {
     });
 
     return classroom;
+  }).then((classroom) => {
+    invalidateMembershipListCache(payload.createdBy);
+    return classroom;
   });
 };
 
@@ -129,24 +133,26 @@ const createClassroom = async (payload: ICreateClassroomPayload) => {
  * the CR dashboard for each classroom.
  */
 const getMyClassrooms = async (userId: string) => {
-  const memberships = await prisma.membership.findMany({
-    where: { userId },
-    include: {
-      classroom: {
-        select: {
-          ...classroomSelect,
-          _count: { select: { memberships: true } },
+  return withMembershipListCache(userId, async () => {
+    const memberships = await prisma.membership.findMany({
+      where: { userId },
+      include: {
+        classroom: {
+          select: {
+            ...classroomSelect,
+            _count: { select: { memberships: true } },
+          },
         },
       },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+      orderBy: { createdAt: "desc" },
+    });
 
-  return memberships.map((m) => ({
-    memberRole: m.role,
-    joinedAt: m.createdAt,
-    classroom: m.classroom,
-  }));
+    return memberships.map((m) => ({
+      memberRole: m.role,
+      joinedAt: m.createdAt,
+      classroom: m.classroom,
+    }));
+  });
 };
 
 const buildLeaderboardForClassrooms = async (
@@ -719,7 +725,7 @@ const joinClassroom = async (payload: {
     );
   }
 
-  return prisma.membership.create({
+  const membership = await prisma.membership.create({
     data: {
       userId: payload.userId,
       classroomId: classroom.id,
@@ -729,6 +735,9 @@ const joinClassroom = async (payload: {
       classroom: { select: classroomSelect },
     },
   });
+
+  invalidateMembershipListCache(payload.userId);
+  return membership;
 };
 
 const leaveClassroom = async (payload: ILeaveClassroomPayload) => {
@@ -770,6 +779,8 @@ const leaveClassroom = async (payload: ILeaveClassroomPayload) => {
       },
     },
   });
+
+  invalidateMembershipListCache(payload.userId);
 
   return {
     classroomId: membership.classroomId,

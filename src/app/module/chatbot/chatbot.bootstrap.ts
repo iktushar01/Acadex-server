@@ -3,7 +3,9 @@ import { prisma } from "../../lib/prisma";
 
 const dimension = () => envVars.CHATBOT_EMBEDDING_DIMENSION;
 
-export const ensureChatbotInfrastructure = async (): Promise<void> => {
+let infrastructureReady: Promise<void> | null = null;
+
+const runBootstrap = async (): Promise<void> => {
   await prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS vector`);
 
   await prisma.$executeRawUnsafe(`
@@ -148,4 +150,15 @@ export const ensureChatbotInfrastructure = async (): Promise<void> => {
     CREATE INDEX IF NOT EXISTS note_index_jobs_note_idx
     ON note_index_jobs ("noteId")
   `);
+};
+
+export const ensureChatbotInfrastructure = (): Promise<void> => {
+  if (!infrastructureReady) {
+    infrastructureReady = runBootstrap().catch((error) => {
+      infrastructureReady = null;
+      throw error;
+    });
+  }
+
+  return infrastructureReady;
 };
