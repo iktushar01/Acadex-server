@@ -64,7 +64,11 @@ export const checkAuth = (...authRoles: Role[]) => async (req: Request, res: Res
         }
 
         //Access Token Verification
-        const accessToken = cookieUtils.getCookie(req, 'accessToken');
+        const authHeader = req.headers.authorization;
+        const bearerToken = authHeader?.startsWith("Bearer ")
+            ? authHeader.slice(7)
+            : undefined;
+        const accessToken = cookieUtils.getCookie(req, 'accessToken') ?? bearerToken;
 
         if (!accessToken) {
             throw new AppError(StatusCodes.UNAUTHORIZED, 'Unauthorized access! No access token provided.');
