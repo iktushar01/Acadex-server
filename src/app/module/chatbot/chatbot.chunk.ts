@@ -1,30 +1,103 @@
-const CHUNK_SIZE = 800;
-const CHUNK_OVERLAP = 120;
+const TARGET_TOKENS = 500;
+const OVERLAP_TOKENS = 50;
+const CHARS_PER_TOKEN = 4;
 
-export const splitIntoChunks = (text: string): string[] => {
-  const normalized = text.replace(/\s+/g, " ").trim();
+const targetChars = TARGET_TOKENS * CHARS_PER_TOKEN;
+const overlapChars = OVERLAP_TOKENS * CHARS_PER_TOKEN;
 
-  if (!normalized) {
-    return [];
+const HEADING_PATTERN = /^(#{1,6}\s|(?:Chapter|Section|Unit|Lecture|Topic)\s+\d|[A-Z][A-Z0-9\s]{2,}:)/im;
+
+const splitByHeadings = (text: string): string[] => {
+  const lines = text.split("\n");
+  const sections: string[] = [];
+  let current = "";
+
+  for (const line of lines) {
+    if (HEADING_PATTERN.test(line.trim()) && current.trim()) {
+      sections.push(current.trim());
+      current = line;
+    } else {
+      current += (current ? "\n" : "") + line;
+    }
   }
 
-  if (normalized.length <= CHUNK_SIZE) {
-    return [normalized];
+  if (current.trim()) {
+    sections.push(current.trim());
   }
 
+  return sections.length > 0 ? sections : [text];
+};
+
+const splitByParagraphs = (section: string): string[] => {
+  const paragraphs = section
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  return paragraphs.length > 0 ? paragraphs : [section];
+};
+
+const preserveFormulaBlocks = (paragraph: string): string[] => {
+  const formulaPattern = /\$\$[\s\S]*?\$\$|\$[^$\n]+\$/g;
+  if (!formulaPattern.test(paragraph)) {
+    return [paragraph];
+  }
+
+  return [paragraph];
+};
+
+const mergeIntoChunks = (units: string[]): string[] => {
   const chunks: string[] = [];
-  let start = 0;
+  let buffer = "";
 
-  while (start < normalized.length) {
-    const end = Math.min(start + CHUNK_SIZE, normalized.length);
-    chunks.push(normalized.slice(start, end));
+  for (const unit of units) {
+    const candidate = buffer ? `${buffer}\n\n${unit}` : unit;
 
-    if (end >= normalized.length) {
-      break;
+    if (candidate.length <= targetChars) {
+      buffer = candidate;
+      continue;
     }
 
-    start = Math.max(end - CHUNK_OVERLAP, start + 1);
+    if (buffer) {
+      chunks.push(buffer);
+      const tail = buffer.slice(-overlapChars);
+      buffer = tail ? `${tail}\n\n${unit}` : unit;
+    } else if (unit.length <= targetChars) {
+      buffer = unit;
+    } else {
+      let start = 0;
+      while (start < unit.length) {
+        const end = Math.min(start + targetChars, unit.length);
+        chunks.push(unit.slice(start, end));
+        if (end >= unit.length) break;
+        start = Math.max(end - overlapChars, start + 1);
+      }
+      buffer = "";
+    }
+  }
+
+  if (buffer.trim()) {
+    chunks.push(buffer.trim());
   }
 
   return chunks;
+};
+
+export const estimateTokens = (text: string): number =>
+  Math.ceil(text.length / CHARS_PER_TOKEN);
+
+export const splitIntoChunks = (text: string): string[] => {
+  const normalized = text.replace(/\r\n/g, "\n").trim();
+  if (!normalized) return [];
+
+  if (normalized.length <= targetChars) {
+    return [normalized];
+  }
+
+  const sections = splitByHeadings(normalized);
+  const units = sections.flatMap((section) =>
+    splitByParagraphs(section).flatMap(preserveFormulaBlocks),
+  );
+
+  return mergeIntoChunks(units);
 };

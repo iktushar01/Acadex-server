@@ -39,9 +39,16 @@ interface EnvConfig {
     OPENROUTER_BASE_URL: string;
     OPENROUTER_EMBEDDING_MODEL: string;
     OPENROUTER_LLM_MODEL: string;
+    OPENROUTER_LLM_MODEL_FAST: string;
+    OPENROUTER_LLM_MODEL_POWER: string;
+    OPENROUTER_VISION_MODEL: string;
     CHATBOT_TOP_K: number;
     CHATBOT_MIN_SIMILARITY: number;
     CHATBOT_EMBEDDING_DIMENSION: number;
+    CHATBOT_EMBED_BATCH_SIZE: number;
+    CHATBOT_HISTORY_LIMIT: number;
+    CHATBOT_RATE_LIMIT_MAX: number;
+    CHATBOT_RATE_LIMIT_WINDOW_MS: number;
     STRIPE_SECRET_KEY: string | undefined;
     STRIPE_WEBHOOK_SECRET: string | undefined;
 }
@@ -123,10 +130,27 @@ const loadEnvVariables = (): EnvConfig => {
         OPENROUTER_LLM_MODEL:
             process.env.OPENROUTER_LLM_MODEL ??
             "nvidia/nemotron-3-super-120b-a12b:free",
-        CHATBOT_TOP_K: Number(process.env.CHATBOT_TOP_K ?? 5),
-        CHATBOT_MIN_SIMILARITY: Number(process.env.CHATBOT_MIN_SIMILARITY ?? 0.55),
+        OPENROUTER_LLM_MODEL_FAST:
+            process.env.OPENROUTER_LLM_MODEL_FAST ??
+            process.env.OPENROUTER_LLM_MODEL ??
+            "nvidia/nemotron-3-super-120b-a12b:free",
+        OPENROUTER_LLM_MODEL_POWER:
+            process.env.OPENROUTER_LLM_MODEL_POWER ??
+            process.env.OPENROUTER_LLM_MODEL ??
+            "nvidia/nemotron-3-super-120b-a12b:free",
+        OPENROUTER_VISION_MODEL:
+            process.env.OPENROUTER_VISION_MODEL ??
+            "google/gemini-2.0-flash-lite-preview-02-05:free",
+        CHATBOT_TOP_K: Number(process.env.CHATBOT_TOP_K ?? 8),
+        CHATBOT_MIN_SIMILARITY: Number(process.env.CHATBOT_MIN_SIMILARITY ?? 0.5),
         CHATBOT_EMBEDDING_DIMENSION: Number(
             process.env.CHATBOT_EMBEDDING_DIMENSION ?? 2048,
+        ),
+        CHATBOT_EMBED_BATCH_SIZE: Number(process.env.CHATBOT_EMBED_BATCH_SIZE ?? 16),
+        CHATBOT_HISTORY_LIMIT: Number(process.env.CHATBOT_HISTORY_LIMIT ?? 10),
+        CHATBOT_RATE_LIMIT_MAX: Number(process.env.CHATBOT_RATE_LIMIT_MAX ?? 25),
+        CHATBOT_RATE_LIMIT_WINDOW_MS: Number(
+            process.env.CHATBOT_RATE_LIMIT_WINDOW_MS ?? 60_000,
         ),
         STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
         STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,

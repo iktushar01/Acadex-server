@@ -3,14 +3,16 @@ model ChatSession {
   userId      String
   classroomId String
   title       String?
+  isPinned    Boolean       @default(false)
+  archivedAt  DateTime?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
   user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages    ChatMessage[]
 
-  @@unique([userId, classroomId])
   @@index([classroomId])
+  @@index([userId, classroomId])
   @@map("chat_sessions")
 }
 
@@ -20,6 +22,7 @@ model ChatMessage {
   role      String
   content   String
   sources   Json?
+  mode      String?
   createdAt DateTime    @default(now())
 
   session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)

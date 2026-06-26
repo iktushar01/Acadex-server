@@ -2,16 +2,19 @@ import { randomUUID } from "node:crypto";
 import { NoteStatus } from "../../lib/prisma-exports";
 import { prisma } from "../../lib/prisma";
 import { splitIntoChunks } from "./chatbot.chunk";
-import { deleteChunksForNote, insertNoteChunk } from "./chatbot.store";
+import {
+  createIndexJob,
+  deleteChunksForNote,
+  insertNoteChunk,
+  updateIndexJob,
+} from "./chatbot.store";
 import { OpenRouterClient } from "./openrouter.client";
+import { enqueueChatbotJob } from "./chatbot.queue";
 
-const extractPdfText = async (url: string): Promise<string> => {
+const extractPdfText = async (url: string): Promise<{ text: string; pages: string[] }> => {
   try {
     const response = await fetch(url);
-
-    if (!response.ok) {
-      return "";
-    }
+    if (!response.ok) return { text: "", pages: [] };
 
     const buffer = Buffer.from(await response.arrayBuffer());
     const pdfParseModule = await import("pdf-parse");
@@ -19,10 +22,31 @@ const extractPdfText = async (url: string): Promise<string> => {
       "default" in pdfParseModule && pdfParseModule.default
         ? pdfParseModule.default
         : pdfParseModule;
-    const parsed = await (pdfParse as (data: Buffer) => Promise<{ text?: string }>)(buffer);
-    return typeof parsed.text === "string" ? parsed.text.trim() : "";
+    const parsed = await (pdfParse as (data: Buffer) => Promise<{ text?: string; numpages?: number }>)(buffer);
+    const fullText = typeof parsed.text === "string" ? parsed.text.trim() : "";
+
+    if (!fullText) return { text: "", pages: [] };
+
+    const pageCount = parsed.numpages ?? 1;
+    const approxPageSize = Math.ceil(fullText.length / pageCount);
+    const pages: string[] = [];
+
+    for (let page = 0; page < pageCount; page += 1) {
+      pages.push(fullText.slice(page * approxPageSize, (page + 1) * approxPageSize));
+    }
+
+    return { text: fullText, pages };
   } catch (error) {
     console.error(`[Chatbot] PDF extraction failed for ${url}:`, error);
+    return { text: "", pages: [] };
+  }
+};
+
+const extractImageText = async (url: string): Promise<string> => {
+  try {
+    return await OpenRouterClient.describeImage(url);
+  } catch (error) {
+    console.error(`[Chatbot] Image OCR failed for ${url}:`, error);
     return "";
   }
 };
@@ -33,7 +57,7 @@ const buildNoteCorpus = async (note: {
   subject: { name: string };
   folder: { name: string } | null;
   files: Array<{ type: string; url: string; fileName: string | null }>;
-}): Promise<string> => {
+}): Promise<{ corpus: string; ocrStatus: string; pageTexts: string[] }> => {
   const sections = [
     `Title: ${note.title}`,
     note.description ? `Description: ${note.description}` : "",
@@ -41,25 +65,52 @@ const buildNoteCorpus = async (note: {
     note.folder ? `Folder: ${note.folder.name}` : "",
   ].filter(Boolean);
 
+  const pageTexts: string[] = [];
+  let ocrApplied = false;
+  let ocrFailed = false;
+
   for (const file of note.files) {
     if (file.type === "pdf") {
-      const pdfText = await extractPdfText(file.url);
-      if (pdfText) {
+      const { text, pages } = await extractPdfText(file.url);
+      if (text) {
+        sections.push(`PDF (${file.fileName ?? "attachment"}):\n${text}`);
+        pageTexts.push(...pages);
+      }
+    } else if (file.type === "image") {
+      const imageText = await extractImageText(file.url);
+      ocrApplied = true;
+      if (imageText) {
+        sections.push(`Image (${file.fileName ?? "attachment"}):\n${imageText}`);
+        pageTexts.push(imageText);
+      } else {
+        ocrFailed = true;
         sections.push(
-          `PDF (${file.fileName ?? "attachment"}): ${pdfText.slice(0, 12_000)}`,
+          `Image file: ${file.fileName ?? "attachment"} (${file.url})`,
         );
       }
     } else {
       sections.push(
-        `Image file: ${file.fileName ?? "attachment"} (${file.url})`,
+        `Attachment: ${file.fileName ?? "file"} (${file.url})`,
       );
     }
   }
 
-  return sections.join("\n\n");
+  const ocrStatus = ocrApplied
+    ? ocrFailed
+      ? "partial"
+      : "completed"
+    : "not_needed";
+
+  return {
+    corpus: sections.join("\n\n"),
+    ocrStatus,
+    pageTexts,
+  };
 };
 
 const indexNote = async (noteId: string): Promise<{ chunksIndexed: number }> => {
+  const jobId = randomUUID();
+
   const note = await prisma.note.findUnique({
     where: { id: noteId },
     select: {
@@ -69,6 +120,7 @@ const indexNote = async (noteId: string): Promise<{ chunksIndexed: number }> => 
       status: true,
       classroomId: true,
       subjectId: true,
+      folderId: true,
       subject: { select: { name: true } },
       folder: { select: { name: true } },
       files: {
@@ -83,35 +135,86 @@ const indexNote = async (noteId: string): Promise<{ chunksIndexed: number }> => 
     return { chunksIndexed: 0 };
   }
 
-  const corpus = await buildNoteCorpus(note);
-  const chunks = splitIntoChunks(corpus);
+  await createIndexJob({
+    id: jobId,
+    noteId: note.id,
+    classroomId: note.classroomId,
+  });
 
-  await deleteChunksForNote(noteId);
+  await updateIndexJob(jobId, {
+    status: "processing",
+    startedAt: new Date(),
+  });
 
-  if (chunks.length === 0) {
-    return { chunksIndexed: 0 };
-  }
+  try {
+    const { corpus, ocrStatus, pageTexts } = await buildNoteCorpus(note);
+    const chunks = splitIntoChunks(corpus);
 
-  let indexed = 0;
+    await deleteChunksForNote(noteId);
 
-  for (const [chunkIndex, content] of chunks.entries()) {
-    const embedding = await OpenRouterClient.embedText(content);
+    if (chunks.length === 0) {
+      await updateIndexJob(jobId, {
+        status: "completed",
+        chunksIndexed: 0,
+        ocrStatus,
+        completedAt: new Date(),
+      });
+      return { chunksIndexed: 0 };
+    }
 
-    await insertNoteChunk({
-      id: randomUUID(),
-      noteId: note.id,
-      classroomId: note.classroomId,
-      subjectId: note.subjectId,
-      chunkIndex,
-      content,
-      noteTitle: note.title,
-      embedding,
+    const embeddings = await OpenRouterClient.embedTexts(chunks);
+
+    for (const [chunkIndex, content] of chunks.entries()) {
+      const pageNumber =
+        pageTexts.length > 0
+          ? Math.min(
+              pageTexts.length,
+              Math.floor((chunkIndex / chunks.length) * pageTexts.length) + 1,
+            )
+          : null;
+
+      await insertNoteChunk({
+        id: randomUUID(),
+        noteId: note.id,
+        classroomId: note.classroomId,
+        subjectId: note.subjectId,
+        folderId: note.folderId,
+        chunkIndex,
+        content,
+        noteTitle: note.title,
+        pageNumber,
+        embedding: embeddings[chunkIndex]!,
+      });
+    }
+
+    await updateIndexJob(jobId, {
+      status: "completed",
+      chunksIndexed: chunks.length,
+      ocrStatus,
+      completedAt: new Date(),
     });
 
-    indexed += 1;
-  }
+    return { chunksIndexed: chunks.length };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown indexing error";
 
-  return { chunksIndexed: indexed };
+    await updateIndexJob(jobId, {
+      status: "failed",
+      error: message,
+      completedAt: new Date(),
+    });
+
+    throw error;
+  }
+};
+
+const queueIndexNote = (noteId: string): void => {
+  enqueueChatbotJob(async () => {
+    await indexNote(noteId).catch((error) => {
+      console.error(`[Chatbot] Failed to index note ${noteId}:`, error);
+    });
+  });
 };
 
 const reindexClassroom = async (
@@ -133,8 +236,21 @@ const reindexClassroom = async (
   return { notesIndexed: notes.length, chunksIndexed };
 };
 
+const queueReindexClassroom = (classroomId: string): void => {
+  enqueueChatbotJob(async () => {
+    await reindexClassroom(classroomId).catch((error) => {
+      console.error(
+        `[Chatbot] Failed to reindex classroom ${classroomId}:`,
+        error,
+      );
+    });
+  });
+};
+
 export const ChatbotIngestion = {
   indexNote,
+  queueIndexNote,
   reindexClassroom,
+  queueReindexClassroom,
   removeNote: deleteChunksForNote,
 };

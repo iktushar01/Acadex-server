@@ -478,9 +478,7 @@ const approveNote = async (payload: IApproveNotePayload) => {
     select: noteSelect,
   });
 
-  void ChatbotIngestion.indexNote(noteId).catch((error) => {
-    console.error(`[Chatbot] Failed to index approved note ${noteId}:`, error);
-  });
+  ChatbotIngestion.queueIndexNote(noteId);
 
   return approved;
 };
