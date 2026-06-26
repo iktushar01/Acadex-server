@@ -174,7 +174,20 @@ const getDashboardStats = async (requestingUser: IRequestUser) => {
         }),
     ]);
 
-    let donationSummary = {
+    let donationSummary: {
+        configured: boolean;
+        totalAmountCents: number;
+        totalDonations: number;
+        currency: string;
+        recentDonations: Array<{
+            id: string;
+            amountCents: number;
+            currency: string;
+            createdAt: string;
+            email: string | null;
+        }>;
+        error?: string;
+    } = {
         configured: false,
         totalAmountCents: 0,
         totalDonations: 0,
@@ -190,13 +203,17 @@ const getDashboardStats = async (requestingUser: IRequestUser) => {
 
     try {
         donationSummary = await DonationService.getPaymentStats();
-    } catch {
+    } catch (error) {
         donationSummary = {
-            configured: false,
+            configured: Boolean(process.env.STRIPE_SECRET_KEY),
             totalAmountCents: 0,
             totalDonations: 0,
             currency: "usd",
             recentDonations: [],
+            error:
+                error instanceof Error
+                    ? error.message
+                    : "Failed to load donation stats from Stripe",
         };
     }
 

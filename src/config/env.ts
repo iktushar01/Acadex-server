@@ -43,6 +43,7 @@ interface EnvConfig {
     CHATBOT_MIN_SIMILARITY: number;
     CHATBOT_EMBEDDING_DIMENSION: number;
     STRIPE_SECRET_KEY: string | undefined;
+    STRIPE_WEBHOOK_SECRET: string | undefined;
 }
 
 const requiredEnvVariables = [
@@ -128,6 +129,7 @@ const loadEnvVariables = (): EnvConfig => {
             process.env.CHATBOT_EMBEDDING_DIMENSION ?? 2048,
         ),
         STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+        STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     }
 }
 

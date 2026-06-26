@@ -8,6 +8,7 @@ import { IndexRoute } from "./app/routes/index";
 import { globalErrorhandler } from "./app/middleware/globalErrorhandler";
 import { notFound } from "./app/middleware/notFound";
 import { auth } from "./app/lib/auth";
+import { DonationController } from "./app/module/donation/donation.controller";
 
 const app: Application = express();
 
@@ -32,6 +33,13 @@ app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
 
 app.use("/api/auth", toNodeHandler(auth))
+
+app.post(
+  "/api/v1/donations/webhook",
+  express.raw({ type: "application/json" }),
+  DonationController.handleWebhook,
+);
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));

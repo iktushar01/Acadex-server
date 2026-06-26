@@ -15,6 +15,31 @@ const createCheckoutSession = catchAsync(async (req: Request, res: Response) => 
   });
 });
 
+const confirmCheckoutSession = catchAsync(async (req: Request, res: Response) => {
+  const result = await DonationService.confirmCheckoutSession(req.body.sessionId);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Donation recorded successfully",
+    data: result,
+  });
+});
+
+const handleWebhook = catchAsync(async (req: Request, res: Response) => {
+  const signature = req.headers["stripe-signature"];
+  const payload = req.body as Buffer;
+
+  const result = await DonationService.handleStripeWebhook(
+    payload,
+    typeof signature === "string" ? signature : undefined,
+  );
+
+  res.status(StatusCodes.OK).json(result);
+});
+
 export const DonationController = {
   createCheckoutSession,
+  confirmCheckoutSession,
+  handleWebhook,
 };
