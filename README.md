@@ -1,105 +1,91 @@
 # Acadex Server
 
-Acadex Server is the developer-friendly backend for Acadex. It powers authentication, classroom management, subjects, folders, notes, favorites, comments, notices, and admin workflows through a modular Express + Prisma API.
+The REST API backend for **Acadex** — authentication, classrooms, note sharing with moderation, AI study assistant (RAG), real-time group chat, donations, and admin operations.
 
-## Live URLs
+| | |
+|---|---|
+| **Live API** | [acadex-server.vercel.app/api/v1](https://acadex-server.vercel.app/api/v1) |
+| **Client** | [acadex-client.vercel.app](https://acadex-client.vercel.app) |
+| **Full docs** | [DOCUMENTATION.md](./DOCUMENTATION.md) |
 
-- Production API Root: [https://acadex-server.vercel.app](https://acadex-server.vercel.app)
-- Versioned API Base: [https://acadex-server.vercel.app/api/v1](https://acadex-server.vercel.app/api/v1)
-- Production Client: [https://acadex-client.vercel.app](https://acadex-client.vercel.app)
+---
 
-## Features
+## At a glance
 
-- Better Auth based auth system with email/password and Google login
-- JWT access and refresh token flow
-- Prisma-powered PostgreSQL data layer
-- Modular route structure for auth, users, classrooms, subjects, folders, notes, favorites, comments, notices, and admins
-- Cloudinary-based media upload pipeline
-- OTP email verification and password reset flow
-- Classroom membership, CR management, and note approval support
-- TypeScript-first codebase with validation and reusable utilities
+- **Modular Express API** — 14 feature modules under `/api/v1`  
+- **Dual auth** — Better Auth sessions + JWT (cookies & Bearer)  
+- **Classroom permissions** — platform roles + per-classroom CR (Class Representative)  
+- **Note workflow** — upload → CR approval → Cloudinary storage  
+- **RAG chatbot** — pgvector + OpenRouter embeddings & LLM with streaming  
+- **Real-time chat** — Pusher events on classroom channels  
+- **Integrations** — Cloudinary, Stripe, Google OAuth, SMTP  
 
-## Technologies Used
+**Stack:** Express 5 · Prisma 7 · PostgreSQL (Neon) · TypeScript · Vercel
 
-- Node.js
-- Express 5
-- TypeScript
-- Prisma
-- PostgreSQL
-- Better Auth
-- Zod
-- Cloudinary
-- Nodemailer
-- JWT
-- Vercel
+---
 
-## Setup Instructions
-
-### 1. Install dependencies
+## Quick start
 
 ```bash
-npm install
+pnpm install
+cp .env.example .env   # fill all required values
+
+pnpm exec prisma generate
+pnpm exec prisma db push
+
+pnpm dev    # http://localhost:5000
 ```
 
-### 2. Create your environment file
+See `.env.example` and [DOCUMENTATION.md](./DOCUMENTATION.md) for the complete environment variable list.
 
-Copy `.env.example` to `.env` and update the values.
+---
 
-Required variables include:
+## API modules
 
-```env
-PORT=5000
-DATABASE_URL=your_database_url
-BETTER_AUTH_SECRET=your_better_auth_secret
-BETTER_AUTH_URL=http://localhost:5000
-FRONTEND_URL=http://localhost:3000
-NODE_ENV=development
-ACCESS_TOKEN_SECRET=your_access_token_secret
-REFRESH_TOKEN_SECRET=your_refresh_token_secret
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_SECURE=false
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASSWORD=your_email_app_password
-EMAIL_FROM="Acadex <your_email@gmail.com>"
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-SUPER_ADMIN_EMAIL=your_super_admin_email
-SUPER_ADMIN_PASSWORD=your_super_admin_password
+| Prefix | Feature |
+|--------|---------|
+| `/api/v1/auth` | Login, register, OAuth, profile |
+| `/api/v1/classrooms` | Classrooms, memberships, leaderboards |
+| `/api/v1/subjects` · `/folders` · `/notes` | Curriculum & note sharing |
+| `/api/v1/favorites` · `/comments` | Engagement |
+| `/api/v1/chat` | Real-time group chat |
+| `/api/v1/chatbot` | AI study assistant (RAG) |
+| `/api/v1/donations` | Stripe donations |
+| `/api/v1/admins` · `/notices` | Platform administration |
+
+**Also:** `/api/auth` — Better Auth handler
+
+---
+
+## Documentation
+
+| Document | Audience | Contents |
+|----------|----------|----------|
+| **[DOCUMENTATION.md](./DOCUMENTATION.md)** | Recruiters, developers, integrators | Architecture, permissions, flows, database, integrations, deployment |
+| **Client docs** | Product & UI flows | [Acadex-client/DOCUMENTATION.md](../Acadex-client/DOCUMENTATION.md) |
+
+---
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | Development server (watch) |
+| `pnpm build` | Prisma generate + TypeScript compile |
+| `pnpm start` | Run production build |
+| `pnpm vercel-build` | Vercel deployment build |
+
+---
+
+## Repository layout
+
+```
+src/app/
+├── module/        # Feature modules (route, controller, service)
+├── middleware/    # Auth, validation, errors
+├── routes/        # Route index
+└── lib/           # Prisma, auth, utilities
+prisma/schema/     # Multi-file Prisma schema
 ```
 
-### 3. Start the development server
-
-```bash
-npm run dev
-```
-
-The API will run at [http://localhost:5000](http://localhost:5000).
-
-### 4. Build the server
-
-```bash
-npm run build
-```
-
-### 5. Run the server
-
-```bash
-npm run start
-```
-
-## API Modules
-
-- `/api/v1/auth`
-- `/api/v1/users`
-- `/api/v1/classrooms`
-- `/api/v1/subjects`
-- `/api/v1/folders`
-- `/api/v1/notes`
-- `/api/v1/favorites`
-- `/api/v1/comments`
-- `/api/v1/notices`
-- `/api/v1/admins`
+See [DOCUMENTATION.md](./DOCUMENTATION.md) for architecture diagrams, permission matrices, and end-to-end flows.
