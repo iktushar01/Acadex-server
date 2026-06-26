@@ -42,6 +42,7 @@ interface EnvConfig {
     CHATBOT_TOP_K: number;
     CHATBOT_MIN_SIMILARITY: number;
     CHATBOT_EMBEDDING_DIMENSION: number;
+    STRIPE_SECRET_KEY: string;
 }
 
 const requiredEnvVariables = [
@@ -73,6 +74,7 @@ const requiredEnvVariables = [
     "IMGBB_API_KEY",
     "SUPER_ADMIN_EMAIL",
     "SUPER_ADMIN_PASSWORD",
+    "STRIPE_SECRET_KEY",
 ];
 
 
@@ -126,6 +128,7 @@ const loadEnvVariables = (): EnvConfig => {
         CHATBOT_EMBEDDING_DIMENSION: Number(
             process.env.CHATBOT_EMBEDDING_DIMENSION ?? 2048,
         ),
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY as string,
     }
 }
 
