@@ -9,6 +9,7 @@
       "config": {
         "includeFiles": [
           "dist/generated/prisma/**",
+          "dist/app/**",
           "src/app/templates/**"
         ]
       }
