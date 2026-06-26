@@ -1,5 +1,5 @@
 import type { Prisma } from "../../../generated/prisma/index";
-import { Prisma as PrismaValue, Role, UserStatus } from "../../lib/prisma-exports";
+import { Role, UserStatus } from "../../lib/prisma-exports";
 import AppError from "../../errorHelpers/AppError";
 import { auth } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
@@ -141,8 +141,10 @@ const registerStudent = async (payload: IRegisterStudent, fileBuffer?: Buffer, f
         }
 
         if (
-            error instanceof PrismaValue.PrismaClientKnownRequestError &&
-            error.code === "P2002"
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            (error as { code: string }).code === "P2002"
         ) {
             throw new AppError(
                 StatusCodes.CONFLICT,
