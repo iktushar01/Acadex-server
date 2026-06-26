@@ -80,11 +80,14 @@ export const searchSimilarChunks = async (payload: {
 }): Promise<NoteChunkRecord[]> => {
   await ensureChatbotTables();
 
+  const sanitizedKeyword =
+    payload.keywordQuery.replace(/[^\p{L}\p{N}\s]/gu, " ").trim() || "study";
+
   const filters = [`nc."classroomId" = $2`];
   const params: unknown[] = [
     toVectorLiteral(payload.embedding),
     payload.classroomId,
-    payload.keywordQuery,
+    sanitizedKeyword,
   ];
 
   if (payload.subjectId) {
